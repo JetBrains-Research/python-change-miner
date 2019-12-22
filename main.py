@@ -2,7 +2,9 @@ import pyflowgraph
 
 
 def main():
-    fg = pyflowgraph.build_from_file(file_path='examples/1.py')
+    # sys.setrecursionlimit(10000)
+
+    fg = pyflowgraph.build_from_file(file_path='examples/1.py', build_closure=False)
     pyflowgraph.export_graph_image(fg)
 
 

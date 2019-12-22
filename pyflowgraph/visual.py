@@ -1,6 +1,6 @@
 import graphviz as gv
 
-from pyflowgraph import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge
+from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge
 
 
 def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False):
@@ -28,13 +28,22 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op
     for id, node in enumerate(graph.nodes):
         for edge in node.in_edges:
             label = edge.label
+            attrs = {}
+
             if show_control_branch and isinstance(edge, ControlEdge):
                 label = f'{"T" if edge.branch_kind else "F"} {label}'
-            vg.edge(str(node_to_node_number[edge.node_from]), str(node_to_node_number[edge.node_to]), label=label)
+
+            if isinstance(edge, DataEdge):
+                attrs['style'] = 'dotted'
+
+            vg.edge(str(node_to_node_number[edge.node_from]),
+                    str(node_to_node_number[edge.node_to]),
+                    label=label,
+                    _attributes=attrs)
 
     return vg
 
 
-def export_graph_image(graph: ExtControlFlowGraph, file_name: str = 'graph'):
+def export_graph_image(graph: ExtControlFlowGraph, file_name: str = 'G2'):
     visual_graph = _convert_to_visual_graph(graph, file_name, show_control_branch=True)
     visual_graph.render(f'images/{file_name}')
