@@ -4,3 +4,6 @@ venv/
 images/
 examples/
 .idea/
+conf/settings.json
+progress.txt
+.DS_Store

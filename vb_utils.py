@@ -15,3 +15,21 @@ def deep_merge_dict(d1, d2):
         else:
             d1[k] = v
     return d1
+
+
+class LineReader:
+    def __init__(self, content):
+        self.line_pos_arr = []
+        self.content = content
+
+        self._parse(content)
+
+    def _parse(self, content):
+        self.line_pos_arr.append(0)
+        for ch_num in range(len(content)):
+            if content[ch_num] == '\n':
+                self.line_pos_arr.append(ch_num)
+
+    # consider both start with 1
+    def get_pos(self, line, col):
+        return self.line_pos_arr[line - 1] + col - 1

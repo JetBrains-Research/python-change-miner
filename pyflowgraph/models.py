@@ -11,9 +11,15 @@ class Node:
         self.ast = ast
         self.key = key
         self.control = control
+        self.branch_kind = True
+
+        self.mapped = None
 
         self.in_edges = set()
         self.out_edges = set()
+
+    def is_changed(self):
+        return bool(self.mapped is not None)
 
     def is_statement(self):
         return isinstance(self, ControlNode)
@@ -129,6 +135,7 @@ class LinkType:
     PARAMETER = 'para'
     CONDITION = 'cond'
     QUALIFIER = 'qual'
+    MAP = 'map'
 
     # hidden link types
     DEPENDENCE = 'dep'
@@ -156,6 +163,8 @@ class ExtControlFlowGraph:
 
             if isinstance(node, OperationNode):
                 self.op_nodes.add(node)
+
+        self.changed_nodes = set()
 
     def merge_graph(self, graph):
         self.nodes = self.nodes.union(graph.nodes)
@@ -240,6 +249,13 @@ class ExtControlFlowGraph:
 
         self.entry_node = entry_node
         self.nodes.add(entry_node)
+
+    def calc_changed_nodes(self):
+        self.changed_nodes.clear()
+
+        for node in self.nodes:
+            if node.mapped is None:
+                self.changed_nodes.add(node)
 
 
 class EntryNodeDuplicated(Exception):  # TODO: move outside of this file
