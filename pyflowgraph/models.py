@@ -1,12 +1,24 @@
 from __future__ import annotations
 
 import copy
+import logging
 
 import vb_utils
+from external.gumtree import GumTree
 
 
 class Node:
-    def __init__(self, label, ast, control, key=None):
+    class Version:
+        BEFORE_CHANGES = 0
+        AFTER_CHANGES = 1
+
+    def __init__(self, label, ast, control, key=None, data=None, version=Version.BEFORE_CHANGES):
+        global _statement_cnt
+        self.statement_num = _statement_cnt
+        _statement_cnt += 1
+
+        self.data = data or {}
+
         self.label = str(label)
         self.ast = ast
         self.key = key
@@ -18,8 +30,12 @@ class Node:
         self.in_edges = set()
         self.out_edges = set()
 
-    def is_changed(self):
-        return bool(self.mapped is not None)
+        self.gt_node = None
+        self.is_changed = False
+        self.version = version
+
+    def deep_update_data(self, new_data):
+        self.data = vb_utils.deep_merge_dict(self.data or {}, new_data)
 
     def is_statement(self):
         return isinstance(self, ControlNode)
@@ -68,8 +84,8 @@ class Node:
 
 class DataNode(Node):
     class Kind:
-        FUNCTION = 'function'
-        VARIABLE = 'variable'
+        VARIABLE_DECL = 'variable-decl'
+        VARIABLE_USAGE = 'variable-usage'
         LITERAL = 'literal'
         UNDEFINED = 'undefined'
 
@@ -78,11 +94,14 @@ class DataNode(Node):
 
         self.kind = kind or self.Kind.UNDEFINED
 
+    def __repr__(self):
+        return f'#{self.statement_num} {self.label} <{self.kind}>'
+
 
 class OperationNode(Node):
     class Kind:
         COLLECTION = 'collection'
-        FUNCTION = 'function'
+        METHOD_CALL = 'method-call'
         ASSIGN = 'assignment'
         COMPARE = 'comparision'
         RETURN = 'return'
@@ -96,6 +115,9 @@ class OperationNode(Node):
         if self.control is not None:
             self.control.create_control_edge(self, branch_kind=branch_kind)
 
+    def __repr__(self):
+        return f'#{self.statement_num} {self.label} <{self.kind}> [branch={self.branch_kind}]'
+
 
 class ControlNode(Node):
     def __init__(self, label, ast, control, branch_kind=None):
@@ -104,6 +126,9 @@ class ControlNode(Node):
 
         if self.control is not None:
             self.control.create_control_edge(self, branch_kind=branch_kind)
+
+    def __repr__(self):
+        return f'#{self.statement_num} {self.label} [branch={self.branch_kind}]'
 
 
 class EntryNode(ControlNode):
@@ -135,7 +160,10 @@ class LinkType:
     PARAMETER = 'para'
     CONDITION = 'cond'
     QUALIFIER = 'qual'
+
+    # special
     MAP = 'map'
+    CONTROL = 'control'
 
     # hidden link types
     DEPENDENCE = 'dep'
@@ -166,6 +194,8 @@ class ExtControlFlowGraph:
 
         self.changed_nodes = set()
 
+        self.gumtree = None
+
     def merge_graph(self, graph):
         self.nodes = self.nodes.union(graph.nodes)
         self.op_nodes = self.op_nodes.union(graph.op_nodes)
@@ -195,7 +225,8 @@ class ExtControlFlowGraph:
             if op_link_type:
                 for op_node in graph.op_nodes:
                     for sink in old_sinks:
-                        sink.create_edge(op_node, op_link_type)
+                        if not op_node.has_in_edge(sink, op_link_type):
+                            sink.create_edge(op_node, op_link_type)
 
             self.nodes = self.nodes.union(graph.nodes)
             self.op_nodes = self.op_nodes.union(graph.op_nodes)
@@ -250,13 +281,96 @@ class ExtControlFlowGraph:
         self.entry_node = entry_node
         self.nodes.add(entry_node)
 
-    def calc_changed_nodes(self):
+    def map_to_gumtree(self, gt):
+        self.gumtree = gt
+
+        with open(gt.source_path, 'r+') as f:
+            lr = vb_utils.LineReader(''.join(f.readlines()))
+
+        for node in self.nodes:
+            fst = node.ast.first_token
+            lst = node.ast.last_token
+
+            line = fst.start[0]
+            col = fst.start[1]
+
+            end_line = lst.end[0]
+            end_col = lst.end[1]
+
+            pos = lr.get_pos(line, col) + 2
+            length = lr.get_pos(end_line, end_col) - lr.get_pos(line, col)
+
+            type_label = None
+            if isinstance(node, DataNode):
+                if node.kind == DataNode.Kind.VARIABLE_USAGE:
+                    type_label = GumTree.TypeLabel.NAME_LOAD
+                elif node.kind == DataNode.Kind.VARIABLE_DECL:
+                    type_label = GumTree.TypeLabel.NAME_STORE
+            elif isinstance(node, OperationNode):
+                if node.kind == OperationNode.Kind.ASSIGN:
+                    type_label = GumTree.TypeLabel.ASSIGN
+                elif node.kind == OperationNode.Kind.METHOD_CALL:
+                    type_label = GumTree.TypeLabel.CALL
+
+            deps = node.data.get('mapping_dependencies')
+            if deps:
+                continue  # TODO: not just ignore
+
+            found = gt.find_node(pos, length, type_label=type_label)
+            if found:
+                node.gt_node = found
+                found.fg_node = node
+            else:
+                logging.warning(f'Node {node} is not mapped to any gumtree node')
+                raise GumtreeMappingException
+
+    @staticmethod
+    def map_by_gumtree(fg1, fg2, gt_matches):
+        for match in gt_matches:
+            gt_src_node = fg1.gumtree.node_id_to_node[int(match.get('src'))]
+            gt_dest_node = fg2.gumtree.node_id_to_node[int(match.get('dest'))]
+
+            invalid_mapping = False
+            if not gt_src_node.fg_node:
+                # logging.error(f'Unable to find fg node for {gt_src_node.data}')
+                invalid_mapping = True
+
+            if not gt_dest_node.fg_node:
+                # logging.error(f'Unable to find fg node for {gt_dest_node.data}')
+                invalid_mapping = True
+
+            if invalid_mapping:
+                continue
+
+            fg_src_node = gt_src_node.fg_node
+            fg_dest_node = gt_dest_node.fg_node
+
+            fg_src_node.mapped = fg_dest_node
+            fg_dest_node.mapped = fg_src_node
+
+            fg_src_node.create_edge(fg_dest_node, LinkType.MAP)
+
+    def calc_changed_nodes_by_gumtree(self):
         self.changed_nodes.clear()
 
         for node in self.nodes:
-            if node.mapped is None:
+            if isinstance(node, EntryNode):
+                continue
+
+            if node.gt_node.is_changed:
                 self.changed_nodes.add(node)
+
+                defs = node.get_definitions()
+                for d in defs:
+                    self.changed_nodes.add(d)
+
+
+_statement_cnt = 0
 
 
 class EntryNodeDuplicated(Exception):  # TODO: move outside of this file
+    pass
+
+
+class GumtreeMappingException(Exception):
     pass

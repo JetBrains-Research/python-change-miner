@@ -1,3 +1,7 @@
+import logging
+import time
+
+
 def merge_dict(d1, d2):
     for k, v in d2.items():
         d1[k] = v
@@ -17,6 +21,20 @@ def deep_merge_dict(d1, d2):
     return d1
 
 
+def filter_list(lst, condition, post_condition_fn=None):
+    i = 0
+    while i < len(lst):
+        j = i + 1
+        while j < len(lst):
+            if condition(i, j):
+                if post_condition_fn:
+                    post_condition_fn(i, j)
+                del lst[j]
+            else:
+                j += 1
+        i += 1
+
+
 class LineReader:
     def __init__(self, content):
         self.line_pos_arr = []
@@ -33,3 +51,12 @@ class LineReader:
     # consider both start with 1
     def get_pos(self, line, col):
         return self.line_pos_arr[line - 1] + col - 1
+
+
+def time_log(text, start):
+    logging.warning(f'{text} {int((time.time() - start) * 1000)}ms')
+
+
+def split_list(lst, chunk_size):
+    for i in range(0, len(lst), chunk_size):
+        yield lst[i:i + chunk_size]

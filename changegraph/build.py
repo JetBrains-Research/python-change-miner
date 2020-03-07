@@ -1,101 +1,77 @@
 import logging
 import time
+import multiprocessing
 
 import pyflowgraph
-from pyflowgraph.build import LinkType
-from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode
-from external.gumtree import GumTreeBuilder, GumTree
-from vb_utils import LineReader
+from changegraph.models import ChangeNode, ChangeGraph, ChangeEdge
+from pyflowgraph.models import ExtControlFlowGraph, Node
+from external.gumtree import GumTree
+from external import gumtree
+import vb_utils
 
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
-    @staticmethod
-    def _time_log(text, start):
-        logging.warning(f'{text} {int((time.time() - start) * 1000)}ms')
+    def build_from_files(self, path1, path2, repo_info=None):
+        process_id = multiprocessing.current_process().name
 
-    def build_from_files(self, path1, path2):
-        gt_builder = GumTreeBuilder()
-        gt_matches = gt_builder.get_matches(path1, path2)
+        logging.warning(f'#{process_id}: Change graph building...')
+        gt_matches = gumtree.get_matches(path1, path2)
 
         start = time.time()
-        gt1, gt2 = gt_builder.build_from_file(path1), gt_builder.build_from_file(path2)
+        gt1, gt2 = gumtree.build_from_file(path1), gumtree.build_from_file(path2)
         GumTree.apply_matching(gt1, gt2, gt_matches)
-        self._time_log('Gumtree... OK', start)
+        vb_utils.time_log(f'#{process_id}: Gumtree... OK', start)
 
         start = time.time()
         fg1, fg2 = pyflowgraph.build_from_file(path1), pyflowgraph.build_from_file(path2)
-        self._time_log('Flow graphs... OK', start)
+        vb_utils.time_log(f'#{process_id}: Flow graphs... OK', start)
 
         start = time.time()
-        fg_to_gt1, gt_to_fg1 = self._map_gumtree_to_fg(path1, gt1, fg1)
-        fg_to_gt2, gt_to_fg2 = self._map_gumtree_to_fg(path2, gt2, fg2)
-        for match in gt_matches:
-            src = gt1.node_id_to_node[int(match.get('src'))]
-            dest = gt2.node_id_to_node[int(match.get('dest'))]
+        fg1.map_to_gumtree(gt1)
+        fg2.map_to_gumtree(gt2)
+        ExtControlFlowGraph.map_by_gumtree(fg1, fg2, gt_matches)
+        vb_utils.time_log(f'#{process_id}: Mapping... OK', start)
 
-            if not gt_to_fg1.get(src):
-                logging.error(f'Unable to find fg node for {src.data}')
+        start = time.time()
+        for node in fg2.nodes:
+            node.version = Node.Version.AFTER_CHANGES
+        cg = self._create_change_graph(fg1, fg2, repo_info=repo_info)
+        vb_utils.time_log(f'#{process_id}: Change graph... OK', start)
+
+        return cg
+
+    @staticmethod
+    def _create_change_graph(fg1, fg2, repo_info=None):
+        fg1.calc_changed_nodes_by_gumtree()
+        fg2.calc_changed_nodes_by_gumtree()
+
+        fg_changed_nodes = fg1.changed_nodes.union(fg2.changed_nodes)
+        fg_node_to_cg_node = {}
+
+        cg = ChangeGraph(repo_info=repo_info)
+        for fg_node in fg_changed_nodes:
+            if fg_node_to_cg_node.get(fg_node):
                 continue
 
-            if not gt_to_fg2.get(dest):
-                logging.error(f'Unable to find fg node for {dest.data}')
-                continue
+            node = ChangeNode.create_from_fg_node(fg_node)
+            cg.nodes.add(node)
+            node.set_graph(cg)  # todo: probably better to create method 'add_node'
+            fg_node_to_cg_node[fg_node] = node
 
-            fg_src = gt_to_fg1[src]
-            fg_dest = gt_to_fg2[dest]
+            if fg_node.mapped and fg_node.mapped in fg_changed_nodes:
+                mapped_node = ChangeNode.create_from_fg_node(fg_node.mapped)
+                cg.nodes.add(mapped_node)
+                mapped_node.set_graph(cg)
+                fg_node_to_cg_node[fg_node.mapped] = mapped_node
 
-            fg_src.mapped = fg_dest
-            fg_dest.mapped = fg_src
+                node.mapped = mapped_node
+                mapped_node.mapped = node
 
-            fg_src.create_edge(fg_dest, LinkType.MAP)
-        self._time_log('Mapping... OK', start)
-
-        fg1.calc_changed_nodes()
-        fg2.calc_changed_nodes()
-
-        merged_fg = ExtControlFlowGraph()
-        merged_fg.nodes = fg1.nodes.union(fg2.nodes)
-        merged_fg.changed_nodes = fg1.changed_nodes.union(fg2.changed_nodes)
-
-        return merged_fg
-
-    def _map_gumtree_to_fg(self, src_path, gt, fg):  # TODO: can be optimized
-        fg_node_to_gt_node = {}
-        gt_node_to_fg_node = {}  # TODO CompareGt produces more than 1 node, when only the last one matched
-
-        with open(src_path, 'r+') as f:
-            lr = LineReader(''.join(f.readlines()))
-
-        for node in fg.nodes:
-            fst = node.ast.first_token
-            lst = node.ast.last_token
-
-            line = fst.start[0]
-            col = fst.start[1]
-
-            end_line = lst.end[0]
-            end_col = lst.end[1]
-
-            pos = lr.get_pos(line, col) + 2
-            length = lr.get_pos(end_line, end_col) - lr.get_pos(line, col)
-
-            type_label = None
-            if isinstance(node, DataNode):
-                if node.kind == DataNode.Kind.VARIABLE:
-                    type_label = GumTree.TypeLabel.NAME_LOAD
-            elif isinstance(node, OperationNode):
-                if node.kind == OperationNode.Kind.ASSIGN:
-                    type_label = GumTree.TypeLabel.ASSIGN
-
-            found = gt.find_node(pos, length, type_label=type_label)
-            if found:
-                fg_node_to_gt_node[node] = found
-                gt_node_to_fg_node[found] = node
-            else:
-                logging.warning(f'Node {node} {node.label} {node.ast} is not mapped to any gumtree node')
-                raise GraphBuildingException
-
-        return fg_node_to_gt_node, gt_node_to_fg_node
+        for fg_node in fg_changed_nodes:
+            for e in fg_node.in_edges:
+                if e.node_from in fg_changed_nodes:
+                    ChangeEdge.create(e.label, fg_node_to_cg_node[e.node_from], fg_node_to_cg_node[e.node_to])
+        return cg
 
 
 class GraphBuildingException(Exception):

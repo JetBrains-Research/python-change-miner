@@ -1,3 +1,5 @@
 {
-    "gumtree_bin_path": "str"
+    "gumtree_bin_path": str,
+    "git_repositories_dir": str,
+    "patterns_min_frequency": int
 }

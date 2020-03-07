@@ -1,31 +1,53 @@
 import graphviz as gv
 
-from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge
+from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, EntryNode
 
 
-def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False):
+def _get_label_and_attrs(node, show_op_kind=True):
+    label = f'{node.label}'
+    attrs = {}
+
+    if isinstance(node, DataNode):
+        attrs['shape'] = 'ellipse'
+        if show_op_kind:
+            label = f'{label} <{node.kind}>'
+    elif isinstance(node, OperationNode):
+        attrs['shape'] = 'box'
+        if show_op_kind:
+            label = f'{label} <{node.kind}>'
+    elif isinstance(node, ControlNode):
+        attrs['shape'] = 'diamond'
+
+    return label, attrs
+
+
+def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False,
+                             separate_mapped=True):
     vg = gv.Digraph(name=file_name, format='pdf')
 
-    node_to_node_number = {}
-    for id, node in enumerate(graph.nodes):
-        label = f'{node.label}'
+    used = {}
+    for node in graph.nodes:
+        if used.get(node):
+            continue
 
-        attrs = {}
-        if isinstance(node, DataNode):
-            attrs['shape'] = 'ellipse'
-            if show_op_kind:
-                label = f'{label} <{node.kind}>'
-        elif isinstance(node, OperationNode):
-            attrs['shape'] = 'box'
-            if show_op_kind:
-                label = f'{label} <{node.kind}>'
-        elif isinstance(node, ControlNode):
-            attrs['shape'] = 'diamond'
+        if separate_mapped and node.mapped:
+            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kind)
+            mapped_label, mapped_attrs = _get_label_and_attrs(node.mapped, show_op_kind=show_op_kind)
 
-        vg.node(f'{id}', label=label, _attributes=attrs)
-        node_to_node_number[node] = id
+            used[node] = used[node.mapped] = True
 
-    for id, node in enumerate(graph.nodes):
+            s = gv.Digraph(f'subgraph: {node.statement_num} to {node.mapped.statement_num}')
+            s.node(f'{node.statement_num}', label=label, _attributes=attrs)
+            s.node(f'{node.mapped.statement_num}', label=mapped_label, _attributes=mapped_attrs)
+
+            rank = 'source' if isinstance(node, EntryNode) else 'same'
+            s.graph_attr.update(rank=rank)
+            vg.subgraph(s)
+        else:
+            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kind)
+            vg.node(f'{node.statement_num}', label=label, _attributes=attrs)
+
+    for node in graph.nodes:
         for edge in node.in_edges:
             label = edge.label
             attrs = {}
@@ -36,10 +58,7 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op
             if isinstance(edge, DataEdge):
                 attrs['style'] = 'dotted'
 
-            vg.edge(str(node_to_node_number[edge.node_from]),
-                    str(node_to_node_number[edge.node_to]),
-                    label=label,
-                    _attributes=attrs)
+            vg.edge(str(edge.node_from.statement_num), str(edge.node_to.statement_num), xlabel=label, _attributes=attrs)
 
     return vg
 
