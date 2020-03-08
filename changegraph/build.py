@@ -1,6 +1,6 @@
 import logging
 import time
-import multiprocessing
+import os
 
 import pyflowgraph
 from changegraph.models import ChangeNode, ChangeGraph, ChangeEdge
@@ -12,7 +12,7 @@ import vb_utils
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
     def build_from_files(self, path1, path2, repo_info=None):
-        process_id = multiprocessing.current_process().name
+        process_id = os.getpid()
 
         logging.warning(f'#{process_id}: Change graph building...')
         gt_matches = gumtree.get_matches(path1, path2)

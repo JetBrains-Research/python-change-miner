@@ -2,3 +2,8 @@ graphviz
 asttokens
 pydriller
 pytest
+
+# dev dependencies
+stackimpact
+guppy3
+objgraph

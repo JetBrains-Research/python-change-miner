@@ -24,6 +24,14 @@ class RunModes:
 
 
 def main():
+    # agent = stackimpact.start(
+    #     agent_key=settings.get('stackimpact_agent_key'),
+    #     app_name='CodeChangesMiner',
+    #     debug=True,
+    #     app_version=str(datetime.datetime.now())
+    # )
+    # # # #
+
     sys.setrecursionlimit(10000)
     if os.path.exists('images'):
         shutil.rmtree('images')

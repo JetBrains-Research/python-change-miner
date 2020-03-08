@@ -5,7 +5,8 @@ import ast
 import uuid
 import pickle
 import multiprocessing
-import threading
+import objgraph
+import time
 
 from pydriller import RepositoryMining
 from pydriller.domain.commit import ModificationType
@@ -22,24 +23,6 @@ class GitAnalyzer:
     def __init__(self):
         self._pool = multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000)
 
-    @staticmethod
-    def _log(text):
-        logging.warning(f'#{os.getpid()}: {text}')
-
-    def _get_commit_change_graphs_callback(self, graphs_per_commits):
-        new_change_graphs = []
-        for graphs in graphs_per_commits:
-            if not graphs:
-                continue
-            new_change_graphs += graphs
-
-        logging.warning(f'Built {len(new_change_graphs)} change graphs')
-
-        if not new_change_graphs:
-            return
-
-        self._async_store_change_graphs(new_change_graphs)
-
     def build_change_graphs(self):
         for repo_name in os.listdir(self.GIT_REPOSITORIES_DIR):
             if repo_name.startswith('_'):
@@ -47,60 +30,75 @@ class GitAnalyzer:
                 continue
 
             logging.warning(f'Looking at {repo_name}')
+            commits = self._extract_commits(repo_name)
 
-            repo_path = os.path.join(self.GIT_REPOSITORIES_DIR, repo_name)
-            repo = RepositoryMining(repo_path)
-
-            commits = list(repo.traverse_commits())
-            commit_chunks = vb_utils.split_list(commits, self.STORE_INTERVAL)
-
-            for chunk in commit_chunks:
-                args = [(repo_name, repo_path, commit) for commit in chunk]
-
-                logging.warning('Pool starts computations')
-                self._pool.map(self._get_commit_change_graphs, args)
-                logging.warning('Pool stops')
+            logging.warning(f'Pool started computations')
+            self._pool.map(self._get_commit_change_graphs, commits)
+            logging.warning('Pool stopped')
 
         self._pool.close()
         self._pool.join()
 
-    @staticmethod
-    def _async_store_change_graphs(graphs):
-        thread = threading.Thread(target=GitAnalyzer._store_change_graphs, args=(graphs,))
-        thread.daemon = True
-        thread.start()
+    def _extract_commits(self, repo_name):
+        start = time.time()
+
+        repo_path = os.path.join(self.GIT_REPOSITORIES_DIR, repo_name)
+        repo = RepositoryMining(repo_path)
+
+        commits = []
+        for commit in repo.traverse_commits():
+            if not commit.parents:
+                continue
+
+            cut = {
+                'num': len(commits)+1,
+                'hash': commit.hash,
+                'msg': commit.msg,
+                'modifications': [],
+                'repo': {
+                    'name': repo_name,
+                    'path': repo_path
+                },
+                'test': TestObject()
+            }
+
+            for mod in commit.modifications:
+                cut['modifications'].append({
+                    'type': mod.change_type,
+                    'filename': mod.filename,
+                    'old_src': mod.source_code_before,
+                    'new_src': mod.source_code
+                })
+
+            commits.append(cut)
+
+        vb_utils.time_log('Commits extracted', start)
+        return commits
 
     @staticmethod
     def _store_change_graphs(graphs):
         filename = uuid.uuid4().hex
-        logging.warning(f'Storing graphs to {filename}')
+        logging.warning(f'#{os.getpid()}: Storing graphs to {filename}')
 
         with open(f'storage/{filename}.pickle', 'w+b') as f:
             pickle.dump(graphs, f)
 
-        logging.warning(f'Storing graphs to {filename} finished')
+        logging.warning(f'#{os.getpid()}: Storing graphs to {filename} finished')
 
     @staticmethod
-    def _get_commit_change_graphs(args):
-        repo_name, repo_path, commit = args
-        change_graphs = []
+    def _get_commit_change_graphs(commit):
+        commit_msg = commit['msg'].replace('\n', '; ')
+        GitAnalyzer._mp_log(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"')
 
-        commit_msg = commit.msg.replace('\n', '; ')
-        GitAnalyzer._mp_log(f'Looking at commit #{commit.hash}, msg: "{commit_msg}"')
-
-        if not commit.parents:
-            return
-
-        for mod in commit.modifications:
-            if mod.change_type != ModificationType.MODIFY:
+        for mod in commit['modifications']:
+            if mod['type'] != ModificationType.MODIFY:
                 continue
 
-            if not mod.filename.endswith('.py'):
+            if not mod['filename'].endswith('.py'):
                 continue
 
-            old_src, new_src = mod.source_code_before, mod.source_code
             old_method_to_new = GitAnalyzer._get_methods_mapping(
-                GitAnalyzer._extract_methods(old_src), GitAnalyzer._extract_methods(new_src))
+                GitAnalyzer._extract_methods(mod['old_src']), GitAnalyzer._extract_methods(mod['new_src']))
 
             for old_method, new_method in old_method_to_new.items():
                 old_method_src = old_method.get_source()
@@ -118,13 +116,14 @@ class GitAnalyzer:
                     t2.seek(0)
 
                     repo_info = RepoInfo(
-                        repo_name, repo_path, commit.hash, commit.parents, old_method, new_method)
+                        commit['repo']['name'], commit['repo']['path'], commit['hash'], old_method, new_method)
 
                     try:
                         cg = changegraph.build_from_files(
                             os.path.realpath(t1.name), os.path.realpath(t2.name), repo_info=repo_info)
                     except:
-                        GitAnalyzer._mp_log(f'Unable to build a change graph for repo={repo_name}, commit={commit.hash}')
+                        GitAnalyzer._mp_log(f'Unable to build a change graph for repo={commit["repo"]["path"]}, '
+                                            f'commit=#{commit["hash"]}')
                         continue
 
                     change_graphs.append(cg)
@@ -133,8 +132,8 @@ class GitAnalyzer:
                         GitAnalyzer._store_change_graphs(change_graphs)
                         change_graphs.clear()
 
-        if len(change_graphs) >= GitAnalyzer.STORE_INTERVAL:
-            GitAnalyzer._async_store_change_graphs(change_graphs)
+        if change_graphs:
+            GitAnalyzer._store_change_graphs(change_graphs)
 
     @staticmethod
     def _extract_methods(src):
@@ -208,12 +207,11 @@ class Method:
 
 
 class RepoInfo:
-    def __init__(self, repo_name, repo_path, commit_hash, commit_parents, old_method, new_method):
+    def __init__(self, repo_name, repo_path, commit_hash, old_method, new_method):
         self.repo_name = repo_name
         self.repo_path = repo_path
 
         self.commit_hash = commit_hash
-        self.commit_parents = commit_parents
 
         self.old_method = old_method
         self.new_method = new_method
