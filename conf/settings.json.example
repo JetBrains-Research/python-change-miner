@@ -1,5 +1,11 @@
 {
-    "gumtree_bin_path": str,
-    "git_repositories_dir": str,
-    "patterns_min_frequency": int
+  "gumtree_bin_path": str,
+  "git_repositories_dir": str,
+  "patterns_min_frequency": int,
+  "store_interval": int,
+
+  "use_stackimpact": bool,
+  "stackimpact_agent_key": str,
+
+  "log_mapped_nodes": bool
 }

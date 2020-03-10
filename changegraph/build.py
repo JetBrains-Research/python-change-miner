@@ -8,11 +8,13 @@ from pyflowgraph.models import ExtControlFlowGraph, Node
 from external.gumtree import GumTree
 from external import gumtree
 import vb_utils
+import settings
 
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
     def build_from_files(self, path1, path2, repo_info=None):
         process_id = os.getpid()
+        log_mapped_nodes = settings.get('log_mapped_nodes', False)
 
         logging.warning(f'#{process_id}: Change graph building...')
         gt_matches = gumtree.get_matches(path1, path2)
@@ -22,9 +24,10 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         GumTree.apply_matching(gt1, gt2, gt_matches)
         vb_utils.time_log(f'#{process_id}: Gumtree... OK', start)
 
-        # for node in gt1.nodes:
-        #     if node.mapped:
-        #         logging.warning(f'Node {node} mapped to {node.mapped}. D1={node.data}, D2={node.mapped.data}')
+        if log_mapped_nodes:
+            for node in gt1.nodes:
+                if node.mapped:
+                    logging.warning(f'Node {node} mapped to {node.mapped}. D1={node.data}, D2={node.mapped.data}')
 
         start = time.time()
         fg1 = pyflowgraph.build_from_file(path1)
@@ -39,9 +42,10 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         ExtControlFlowGraph.map_by_gumtree(fg1, fg2, gt_matches)
         vb_utils.time_log(f'#{process_id}: Mapping... OK', start)
 
-        # for node in fg1.nodes:
-        #     if node.mapped:
-        #         logging.warning(f'Node {node} mapped to {node.mapped}')
+        if log_mapped_nodes:
+            for node in fg1.nodes:
+                if node.mapped:
+                    logging.warning(f'Node {node} mapped to {node.mapped}')
 
         start = time.time()
         for node in fg2.nodes:
@@ -49,8 +53,9 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         cg = self._create_change_graph(fg1, fg2, repo_info=repo_info)
         vb_utils.time_log(f'#{process_id}: Change graph... OK', start)
 
-        # for node in cg.nodes:
-        #     logging.warning(f'Node {node}')
+        if log_mapped_nodes:
+            for node in cg.nodes:
+                logging.warning(f'Node {node}')
 
         return cg
 

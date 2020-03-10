@@ -4,6 +4,8 @@ import os
 import pickle
 import logging
 import sys
+import stackimpact
+import datetime
 
 from patterns import Miner
 from patterns.models import Fragment, Pattern
@@ -11,6 +13,7 @@ from vcs.traverse import GitAnalyzer, RepoInfo, Method
 
 import pyflowgraph
 import changegraph
+import settings
 
 
 class RunModes:
@@ -24,26 +27,26 @@ class RunModes:
 
 
 def main():
-    # agent = stackimpact.start(
-    #     agent_key=settings.get('stackimpact_agent_key'),
-    #     app_name='CodeChangesMiner',
-    #     debug=True,
-    #     app_version=str(datetime.datetime.now())
-    # )
-    # # # #
+    if settings.get('use_stackimpact'):
+        _ = stackimpact.start(
+            agent_key=settings.get('stackimpact_agent_key'),
+            app_name='CodeChangesMiner',
+            debug=True,
+            app_version=str(datetime.datetime.now())
+        )
 
     sys.setrecursionlimit(10000)
     if os.path.exists('images'):
         shutil.rmtree('images')
 
-    current_mode = RunModes.TEST_PATTERNS_OUTPUT  # TODO: make cli?
+    current_mode = RunModes.TEST_CHANGEGRAPH_BUILDER  # TODO: make cli?
 
     if current_mode == RunModes.TEST_PYFLOWGRAPH_BUILDER:
         args = {
             'input': 'examples/1_old.py',
             'output': 'pyflowgraph',
             'build_closure': False,
-            'show_dependencies': True
+            'show_dependencies': False
         }
 
         fg = pyflowgraph.build_from_file(
