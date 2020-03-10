@@ -1,5 +1,3 @@
-import uuid
-
 from pyflowgraph.models import DataNode, OperationNode, ControlNode, LinkType
 
 
@@ -96,7 +94,7 @@ class ChangeNode:
         self.graph = graph
 
     def __repr__(self):
-        return f'#{self.id} {self.label} {self.kind}.{self.sub_kind}'  # TODO remove uuid
+        return f'#{self.id} v{self.version} {self.label} {self.kind}.{self.sub_kind}'  # TODO remove uuid
 
 
 class ChangeEdge:

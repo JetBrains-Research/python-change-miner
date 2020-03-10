@@ -4,7 +4,8 @@ import copy
 from asttokens import asttokens
 
 from pyflowgraph import models
-from pyflowgraph.models import DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, EntryNode, \
+from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, \
+    EntryNode, \
     ControlEdge
 
 
@@ -36,7 +37,7 @@ class GraphBuilder:
     def __init__(self):
         self.ast_visitor = None
 
-    def build_from_source(self, source_code, build_closure=True):
+    def build_from_source(self, source_code, show_dependencies=False, build_closure=True):
         models._statement_cnt = 0
 
         source_code_ast = ast.parse(source_code, mode='exec')
@@ -45,17 +46,18 @@ class GraphBuilder:
         self.ast_visitor = ASTVisitor()
         fg = self.ast_visitor.visit(tokenized_ast.tree)
 
-        self._clean_dependencies(fg)
+        if not show_dependencies:
+            self._clean_dependencies(fg)
 
         if build_closure:
             self.build_closure(fg)
 
         return fg
 
-    def build_from_file(self, file_path, build_closure=True):
+    def build_from_file(self, file_path, show_dependencies=False, build_closure=True):
         with open(file_path, 'r+') as f:
             data = f.read()
-        return self.build_from_source(data, build_closure)
+        return self.build_from_source(data, show_dependencies=show_dependencies, build_closure=build_closure)
 
     def _build_data_closure(self, node, processed_nodes):
         if node.get_definitions():
@@ -415,6 +417,18 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_Attribute(self, node):
         return self._visit_var_usage(node, node.attr)
 
+    def visit_Subscript(self, node):
+        if isinstance(node.slice, ast.Slice):
+            keys = ['lower', 'step', 'upper']
+            params = []
+            for k in keys:
+                attr = getattr(node.slice, k, None)
+                if attr:
+                    params.append(attr)
+            return self._visit_op('[]', node, OperationNode.Kind.SUBSCRIPT_SLICE, params)
+        elif isinstance(node.slice, ast.Index):
+            return self._visit_op('[]', node, OperationNode.Kind.SUBSCRIPT_INDEX, [node.slice.value])
+
     # Visit operations
     def visit_BinOp(self, node):
         return self._visit_bin_op(node, node.left, node.right, op_name=node.op.__class__.__name__.lower())
@@ -440,6 +454,8 @@ class ASTVisitor(ast.NodeVisitor):
             raise GraphBuildingException
 
     def visit_AnnAssign(self, node):  # TODO: incorrect
+        return GraphBuildingException
+
         if not node.value:
             return ExtControlFlowGraph()
 
@@ -454,7 +470,10 @@ class ASTVisitor(ast.NodeVisitor):
     def _visit_method_call(self, ast_node, name, args):
         arg_fgs = []
         for arg in args:
-            arg_fgs.append(self.visit(arg))
+            fg = self.visit(arg)
+            arg_fgs.append(fg)
+            if not fg:
+                print(1)
 
         g = ExtControlFlowGraph()
         g.parallel_merge_graphs(arg_fgs)
@@ -500,21 +519,21 @@ class ASTVisitor(ast.NodeVisitor):
         self._pop_control_branch()
         return fg
 
-    def visit_For(self, node):  # TODO: problem with mapping
+    def visit_For(self, node):
         prepared_value = self.visitor_helper.prepare_assign_values(node.target, node.iter)
         op_node = OperationNode('=', node, kind=OperationNode.Kind.ASSIGN,
                                 control=self.curr_control, branch_kind=self.curr_branch_kind)
+        op_node.set_property(Node.Property.UNMAPPABLE, True)
+
         fg, vars = self.visitor_helper.get_assign_graph_and_vars(op_node, node.target, prepared_value)
         for var in vars:
             id, var_node = var
             self.context.add_variable(id, var_node)
-        # TODO: could be merged with AnnAssign
 
         control_node = ControlNode('for', node, self.curr_control, branch_kind=self.curr_branch_kind)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-        op_data = {'mapping_dependencies': [control_node]}
-        op_node.deep_update_data(op_node)
+        op_node.deep_update_data( {'unmapped': True})
 
         self._switch_control_branch(control_node, True)
         for st in node.body:
@@ -528,19 +547,27 @@ class ASTVisitor(ast.NodeVisitor):
                                                       branch_kind=self.curr_branch_kind))
 
     # Return/continue/break
-    def visit_Return(self, node):
+    def _visit_dep_resetter(self, label, ast, kind):
         g = ExtControlFlowGraph()
+        if getattr(ast, 'value', None):
+            g.merge_graph(self.visit(ast.value))
 
-        if node.value:
-            g.merge_graph(self.visit(node.value))
-
-        op_node = OperationNode('return', node,
-                                kind=OperationNode.Kind.RETURN,
+        op_node = OperationNode(label, ast,
+                                kind=kind,
                                 control=self.curr_control,
                                 branch_kind=self.curr_branch_kind)
         g.add_node(op_node, LinkType.PARAMETER)
         g.statement_sinks.clear()
         return g
+
+    def visit_Return(self, node):
+        return self._visit_dep_resetter('return', node, OperationNode.Kind.RETURN)
+
+    def visit_Continue(self, node):
+        return self._visit_dep_resetter('continue', node, OperationNode.Kind.CONTINUE)
+
+    def visit_Break(self, node):
+        return self._visit_dep_resetter('break', node, OperationNode.Kind.BREAK)
 
     # Other visits
     def visit_Await(self, node):

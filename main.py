@@ -36,16 +36,18 @@ def main():
     if os.path.exists('images'):
         shutil.rmtree('images')
 
-    current_mode = RunModes.COLLECT_CHANGE_GRAPHS  # TODO: make cli?
+    current_mode = RunModes.TEST_PATTERNS_OUTPUT  # TODO: make cli?
 
     if current_mode == RunModes.TEST_PYFLOWGRAPH_BUILDER:
         args = {
-            'input': 'examples/1_new.py',
+            'input': 'examples/1_old.py',
             'output': 'pyflowgraph',
-            'build_closure': True
+            'build_closure': False,
+            'show_dependencies': True
         }
 
-        fg = pyflowgraph.build_from_file(args['input'], build_closure=args['build_closure'])
+        fg = pyflowgraph.build_from_file(
+            args['input'], show_dependencies=args['show_dependencies'], build_closure=args['build_closure'])
         pyflowgraph.export_graph_image(fg, args['output'])
     elif current_mode == RunModes.TEST_CHANGEGRAPH_BUILDER:
         args = {
@@ -82,8 +84,11 @@ def main():
         change_graphs = []
         for filename in os.listdir('storage'):
             file_path = os.path.join('storage', filename)
-            with open(file_path, 'rb') as f:
-                change_graphs += pickle.load(f)
+            try:
+                with open(file_path, 'rb') as f:
+                    change_graphs += pickle.load(f)
+            except:
+                logging.warning(f'ops {file_path}')
 
         logging.warning('Pattern mining has started')
 
@@ -99,13 +104,13 @@ def main():
 
         with open(args['input1'], 'r+') as f:
             src = f.read()
-            old_method = Method('test_name', ast.parse(src, mode='exec'), src)
+            old_method = Method('test_name', ast.parse(src, mode='exec').body[0], src)
 
         with open(args['input2'], 'r+') as f:
             src = f.read()
-            new_method = Method('test_name', ast.parse(src, mode='exec'), src)
+            new_method = Method('test_name', ast.parse(src, mode='exec').body[0], src)
 
-        repo_info = RepoInfo('mock name', 'mock path', 'mock hash', ['mock parent hash'], old_method, new_method)
+        repo_info = RepoInfo('mock name', 'mock path', 'mock hash', old_method, new_method)
 
         cg = changegraph.build_from_files(args['input1'], args['input2'], repo_info=repo_info)
         fragment = Fragment()

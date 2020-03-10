@@ -5,7 +5,6 @@ import ast
 import uuid
 import pickle
 import multiprocessing
-import objgraph
 import time
 
 from pydriller import RepositoryMining
@@ -58,8 +57,7 @@ class GitAnalyzer:
                 'repo': {
                     'name': repo_name,
                     'path': repo_path
-                },
-                'test': TestObject()
+                }
             }
 
             for mod in commit.modifications:
@@ -87,8 +85,9 @@ class GitAnalyzer:
 
     @staticmethod
     def _get_commit_change_graphs(commit):
+        change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
-        GitAnalyzer._mp_log(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"')
+        GitAnalyzer._mp_log(logging.WARNING, f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"')
 
         for mod in commit['modifications']:
             if mod['type'] != ModificationType.MODIFY:
@@ -122,8 +121,9 @@ class GitAnalyzer:
                         cg = changegraph.build_from_files(
                             os.path.realpath(t1.name), os.path.realpath(t2.name), repo_info=repo_info)
                     except:
-                        GitAnalyzer._mp_log(f'Unable to build a change graph for repo={commit["repo"]["path"]}, '
-                                            f'commit=#{commit["hash"]}')
+                        GitAnalyzer._mp_log(logging.ERROR,
+                                            f'Unable to build a change graph for repo={commit["repo"]["path"]}, '
+                                            f'commit=#{commit["hash"]}', exc_info=True)
                         continue
 
                     change_graphs.append(cg)
@@ -140,7 +140,7 @@ class GitAnalyzer:
         try:
             src_ast = ast.parse(src, mode='exec')
         except:
-            GitAnalyzer._mp_log('Unable to compile src and extract methods')
+            GitAnalyzer._mp_log(logging.ERROR, 'Unable to compile src and extract methods', exc_info=True)
             return []
 
         return ASTMethodExtractor(src).visit(src_ast)
@@ -155,8 +155,8 @@ class GitAnalyzer:
         return old_method_to_new
 
     @staticmethod
-    def _mp_log(text):
-        logging.warning(f'#{os.getpid()}: {text}')
+    def _mp_log(lvl, text, exc_info=False):
+        logging.log(lvl, f'#{os.getpid()}: {text}', exc_info=exc_info)
 
 
 class ASTMethodExtractor(ast.NodeVisitor):
@@ -203,6 +203,7 @@ class Method:
         try:
             return ast.get_source_segment(self.src, self.ast)
         except:
+            logging.exception(f'Unable to extract source segment from {self.ast}')
             return None
 
 

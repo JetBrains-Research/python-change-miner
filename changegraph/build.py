@@ -22,8 +22,15 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         GumTree.apply_matching(gt1, gt2, gt_matches)
         vb_utils.time_log(f'#{process_id}: Gumtree... OK', start)
 
+        # for node in gt1.nodes:
+        #     if node.mapped:
+        #         logging.warning(f'Node {node} mapped to {node.mapped}. D1={node.data}, D2={node.mapped.data}')
+
         start = time.time()
-        fg1, fg2 = pyflowgraph.build_from_file(path1), pyflowgraph.build_from_file(path2)
+        fg1 = pyflowgraph.build_from_file(path1)
+        logging.warning(f'#{process_id}: The first flow graph has been built')
+        fg2 = pyflowgraph.build_from_file(path2)
+        logging.warning(f'#{process_id}: The second flow graph has been built')
         vb_utils.time_log(f'#{process_id}: Flow graphs... OK', start)
 
         start = time.time()
@@ -32,11 +39,18 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         ExtControlFlowGraph.map_by_gumtree(fg1, fg2, gt_matches)
         vb_utils.time_log(f'#{process_id}: Mapping... OK', start)
 
+        # for node in fg1.nodes:
+        #     if node.mapped:
+        #         logging.warning(f'Node {node} mapped to {node.mapped}')
+
         start = time.time()
         for node in fg2.nodes:
             node.version = Node.Version.AFTER_CHANGES
         cg = self._create_change_graph(fg1, fg2, repo_info=repo_info)
         vb_utils.time_log(f'#{process_id}: Change graph... OK', start)
+
+        # for node in cg.nodes:
+        #     logging.warning(f'Node {node}')
 
         return cg
 

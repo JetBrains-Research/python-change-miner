@@ -90,8 +90,11 @@ class Miner:
                 old_src = graph.repo_info.old_method.get_source()
                 new_src = graph.repo_info.new_method.get_source()
 
-                if not all([old_src, new_src]):
-                    logging.warning('Unable to get source from ast')
+                if not old_src:
+                    logging.warning(f'Unable to get source from ast {graph.repo_info.old_method.ast}')
+                    continue
+                if not new_src:
+                    logging.warning(f'Unable to get source from ast {graph.repo_info.new_method.ast}')
                     continue
 
                 markup = f'' \
@@ -130,6 +133,11 @@ class Miner:
             start = node.ast.first_token.startpos
             end = node.ast.last_token.endpos
             pattern_intervals.append([start, end])
+
+            extra_tokens = node.get_property(Node.Property.EXTRA_TOKENS, [])
+            for extra_token in extra_tokens:
+                pattern_intervals.append([extra_token['first_token'], extra_token['last_token']])
+
         pattern_intervals = self._merge_intervals(pattern_intervals)
 
         markup = src

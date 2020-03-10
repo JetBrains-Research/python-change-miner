@@ -8,6 +8,17 @@ from external.gumtree import GumTree
 
 
 class Node:
+    class Property:
+        UNMAPPABLE = 'unmappable'
+        EXTRA_TOKENS = 'extra-tokens'
+        # ORDER = 'order'
+
+    def set_property(self, prop, value):
+        self.data[prop] = value
+
+    def get_property(self, prop, default=None):
+        return self.data.get(prop, default)
+
     class Version:
         BEFORE_CHANGES = 0
         AFTER_CHANGES = 1
@@ -105,6 +116,10 @@ class OperationNode(Node):
         ASSIGN = 'assignment'
         COMPARE = 'comparision'
         RETURN = 'return'
+        BREAK = 'break'
+        CONTINUE = 'continue'
+        SUBSCRIPT_SLICE = 'subscript-slice'
+        SUBSCRIPT_INDEX = 'subscript-index'
         UNCLASSIFIED = 'undefined'
 
     def __init__(self, label, ast, control, key=None, kind=None, branch_kind=None):
@@ -288,6 +303,9 @@ class ExtControlFlowGraph:
             lr = vb_utils.LineReader(''.join(f.readlines()))
 
         for node in self.nodes:
+            if node.get_property(Node.Property.UNMAPPABLE):
+                continue
+
             fst = node.ast.first_token
             lst = node.ast.last_token
 
@@ -311,10 +329,6 @@ class ExtControlFlowGraph:
                     type_label = GumTree.TypeLabel.ASSIGN
                 elif node.kind == OperationNode.Kind.METHOD_CALL:
                     type_label = GumTree.TypeLabel.CALL
-
-            deps = node.data.get('mapping_dependencies')
-            if deps:
-                continue  # TODO: not just ignore
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
@@ -355,6 +369,9 @@ class ExtControlFlowGraph:
 
         for node in self.nodes:
             if isinstance(node, EntryNode):
+                continue
+
+            if node.get_property(Node.Property.UNMAPPABLE):
                 continue
 
             if node.gt_node.is_changed:

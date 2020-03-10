@@ -145,3 +145,6 @@ class GumTreeNode:
         fst_data = {k: self.data[k] for k in self.data.keys() if k in ['type', 'typeLabel']}
         snd_data = {k: node.data[k] for k in node.data.keys() if k in ['type', 'typeLabel']}
         return fst_data == snd_data
+
+    def __repr__(self):
+        return f'#{self.id} {self.type_label} [{self.pos}:{self.length}]'

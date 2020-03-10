@@ -9,4 +9,4 @@ progress.txt
 .DS_Store
 .pytest_cache/
 storage*/
-output/
+output/patterns/
