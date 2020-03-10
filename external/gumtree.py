@@ -33,6 +33,8 @@ class GumTree:
         CALL = 'Call'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
+        ATTRIBUTE_LOAD ='AttributeLoad'
+        ATTR = 'attr'
 
     def __init__(self, source_path, data):
         self.node_id_to_node = {}
@@ -89,29 +91,50 @@ class GumTree:
             src.mapped = dest
             dest.mapped = src
 
-        # TODO: is_changed flags not set to False
-        def change_detector(node):  # TODO: can be optimised
-            node.is_changed = not node.mapped or not node.is_equal(node.mapped)
-            if node.is_changed:
-                return
+        gt_src.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
+        gt_dest.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
 
+    @classmethod
+    def _change_detector_before_visited(cls, node):
+        if node.type_label != GumTree.TypeLabel.ATTRIBUTE_LOAD:
+            return True
+
+        node.is_changed = cls._change_detector(node.get_child_by_type_label(GumTree.TypeLabel.ATTR))
+        return False
+
+    # TODO: is_changed flags not set to False
+    # TODO: can be optimised
+    @classmethod
+    def _change_detector(cls, node):
+        node.is_changed = not node.mapped or not node.is_equal(node.mapped)
+        if not node.is_changed:
             if not node.children:
                 node.is_changed = bool(len(node.mapped.children))
             else:
                 node.is_changed = not len(node.mapped.children)
                 if not node.is_changed:
-                    for child in node.children:
-                        if not child.is_changed:
-                            break
-                    else:
-                        node.is_changed = True
-        gt_src.dfs(fn_after=change_detector)
-        gt_dest.dfs(fn_after=change_detector)
+                    if node.type_label == 'Call':
+                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                        if attr_load:
+                            node.is_changed = attr_load.is_changed
+                            return node.is_changed
+
+                    cls._base_children_change_detector(node)
+        return node.is_changed
+
+    @staticmethod
+    def _base_children_change_detector(node):
+        for child in node.children:
+            if not child.is_changed:
+                break
+        else:
+            node.is_changed = True
 
     @classmethod
     def _do_dfs(cls, node, visited, fn_before=None, fn_after=None):
         if fn_before:
-            fn_before(node)
+            if not fn_before(node):
+                return
 
         for child in node.children:
             if not visited.get(child.id):
@@ -133,18 +156,25 @@ class GumTreeNode:
         self.pos = int(data['pos'])
         self.length = int(data['length'])
         self.type_label = data['typeLabel']
+        self.label = data.get('label')  # e.g. present in AttributeLoad.attr
         self.children = []
 
         self.data = data
         self.mapped = None
 
         self.fg_node = None
-        self.is_changed = None
+        self.is_changed = False
 
     def is_equal(self, node):
-        fst_data = {k: self.data[k] for k in self.data.keys() if k in ['type', 'typeLabel']}
-        snd_data = {k: node.data[k] for k in node.data.keys() if k in ['type', 'typeLabel']}
+        fst_data = {k: self.data[k] for k in self.data.keys() if k in ['label', 'type', 'typeLabel']}
+        snd_data = {k: node.data[k] for k in node.data.keys() if k in ['label', 'type', 'typeLabel']}
         return fst_data == snd_data
+
+    def get_child_by_type_label(self, type_label):
+        for child in self.children:
+            if child.type_label == type_label:
+                return child
+        return None
 
     def __repr__(self):
         return f'#{self.id} {self.type_label} [{self.pos}:{self.length}]'

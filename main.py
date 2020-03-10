@@ -19,7 +19,7 @@ import settings
 class RunModes:
     TEST_PYFLOWGRAPH_BUILDER = 1
     TEST_CHANGEGRAPH_BUILDER = 2
-    TEST_LOCAL_PATTERNS_MINING = 3
+    TEST_PATTERNS_MINING = 3
     TEST_PATTERNS_OUTPUT = 6
 
     COLLECT_CHANGE_GRAPHS = 4
@@ -39,7 +39,7 @@ def main():
     if os.path.exists('images'):
         shutil.rmtree('images')
 
-    current_mode = RunModes.TEST_CHANGEGRAPH_BUILDER  # TODO: make cli?
+    current_mode = RunModes.COLLECT_CHANGE_GRAPHS  # TODO: make cli?
 
     if current_mode == RunModes.TEST_PYFLOWGRAPH_BUILDER:
         args = {
@@ -61,7 +61,7 @@ def main():
 
         fg = changegraph.build_from_files(args['input1'], args['input2'])
         changegraph.export_graph_image(fg, f'images/{args["output"]}')
-    elif current_mode == RunModes.TEST_LOCAL_PATTERNS_MINING:
+    elif current_mode == RunModes.TEST_PATTERNS_MINING:
         args = {
             'input': [
                 ('examples/1_old.py', 'examples/1_new.py'),

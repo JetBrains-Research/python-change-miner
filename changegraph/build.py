@@ -27,13 +27,11 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         if log_mapped_nodes:
             for node in gt1.nodes:
                 if node.mapped:
-                    logging.warning(f'Node {node} mapped to {node.mapped}. D1={node.data}, D2={node.mapped.data}')
+                    logging.warning(f'Gumtree node {node} mapped to {node.mapped}')
 
         start = time.time()
         fg1 = pyflowgraph.build_from_file(path1)
-        logging.warning(f'#{process_id}: The first flow graph has been built')
         fg2 = pyflowgraph.build_from_file(path2)
-        logging.warning(f'#{process_id}: The second flow graph has been built')
         vb_utils.time_log(f'#{process_id}: Flow graphs... OK', start)
 
         start = time.time()
@@ -45,7 +43,9 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         if log_mapped_nodes:
             for node in fg1.nodes:
                 if node.mapped:
-                    logging.warning(f'Node {node} mapped to {node.mapped}')
+                    logging.warning(f'FG node {node} mapped to {node.mapped}, '
+                                    f'GT node {node.gt_node} to {node.mapped.gt_node}, '
+                                    f'is_changed={node.gt_node.is_changed}')
 
         start = time.time()
         for node in fg2.nodes:
@@ -55,7 +55,7 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
 
         if log_mapped_nodes:
             for node in cg.nodes:
-                logging.warning(f'Node {node}')
+                logging.warning(f'CG node {node}')
 
         return cg
 

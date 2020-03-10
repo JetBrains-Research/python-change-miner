@@ -12,8 +12,13 @@ body {
     margin-left: 8px;
 }
 
-.highlighted {
-    color: black;
+#before_code_block .highlighted {
+    color: red;
+    font-weight: bold;
+}
+
+#after_code_block .highlighted {
+    color: green;
     font-weight: bold;
 }
 
