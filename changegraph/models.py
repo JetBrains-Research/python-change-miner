@@ -1,4 +1,4 @@
-from pyflowgraph.models import DataNode, OperationNode, ControlNode, LinkType
+from pyflowgraph.models import DataNode, Node, OperationNode, ControlNode, LinkType
 
 
 class ChangeGraph:
@@ -8,7 +8,9 @@ class ChangeGraph:
 
 
 class ChangeNode:
-    class CommonLabels:
+    _NODE_ID = 0
+
+    class CommonLabel:
         VARIABLE = 'var'
         LITERAL = 'lit'
 
@@ -29,8 +31,11 @@ class ChangeNode:
         OP_COMPARE = OperationNode.Kind.COMPARE
         OP_RETURN = OperationNode.Kind.RETURN
 
-    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None):
-        self.id = statement_num
+    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None, data=None):
+        ChangeNode._NODE_ID += 1
+        self.id = ChangeNode._NODE_ID
+
+        self.statement_num = statement_num
         self.ast = ast
 
         self.label = label
@@ -52,9 +57,10 @@ class ChangeNode:
             sub_kind = fg_node.kind
 
             if sub_kind in [cls.SubKind.DATA_VARIABLE_DECL, cls.SubKind.DATA_VARIABLE_USAGE]:
-                label = cls.CommonLabels.VARIABLE
+                # label = cls.CommonLabel.VARIABLE
+                label = fg_node.label
             elif sub_kind in [cls.SubKind.DATA_LITERAL]:
-                label = cls.CommonLabels.LITERAL
+                label = cls.CommonLabel.LITERAL
 
         elif isinstance(fg_node, OperationNode):
             kind = cls.Kind.OPERATION_NODE
@@ -64,7 +70,7 @@ class ChangeNode:
             kind = cls.Kind.UNKNOWN
 
         created = ChangeNode(fg_node.statement_num, fg_node.ast, label, kind, fg_node.version,
-                             sub_kind=getattr(fg_node, 'kind', None))
+                             sub_kind=getattr(fg_node, 'kind', None), data=fg_node.data)
         return created
 
     def get_in_nodes(self):
@@ -94,7 +100,7 @@ class ChangeNode:
         self.graph = graph
 
     def __repr__(self):
-        return f'#{self.id} v{self.version} {self.label} {self.kind}.{self.sub_kind}'  # TODO remove uuid
+        return f'#{self.id} v{self.version} {self.label} {self.kind}.{self.sub_kind}'
 
 
 class ChangeEdge:

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import copy
-import logging
+import ast
+
+from log import logger
 
 import vb_utils
 from external.gumtree import GumTree
@@ -11,7 +13,7 @@ class Node:
     class Property:
         UNMAPPABLE = 'unmappable'
         EXTRA_TOKENS = 'extra-tokens'
-        # ORDER = 'order'
+        # ORDER = 'order'  # todo
 
     def set_property(self, prop, value):
         self.data[prop] = value
@@ -110,12 +112,21 @@ class DataNode(Node):
 
 
 class OperationNode(Node):
+    class Label:
+        RETURN = 'return'
+        CONTINUE = 'continue'
+        BREAK = 'break'
+        RAISE = 'raise'
+        PASS = 'pass'
+        ASSIGN = '='
+
     class Kind:
         COLLECTION = 'collection'
         METHOD_CALL = 'method-call'
         ASSIGN = 'assignment'
         COMPARE = 'comparision'
         RETURN = 'return'
+        RAISE = 'raise'
         BREAK = 'break'
         CONTINUE = 'continue'
         SUBSCRIPT_SLICE = 'subscript-slice'
@@ -135,6 +146,13 @@ class OperationNode(Node):
 
 
 class ControlNode(Node):
+    class Label:
+        IF = 'if'
+        FOR = 'for'
+        TRY = 'try'
+        EXCEPT = 'except'
+        FINALLY = 'finally'
+
     def __init__(self, label, ast, control, branch_kind=None):
         super().__init__(label, ast, control)
         self.branch_kind = branch_kind
@@ -237,6 +255,14 @@ class ExtControlFlowGraph:
         old_sinks = copy.copy(self.sinks)
 
         for graph in graphs:
+            unresolved_refs = copy.copy(graph.var_refs)  # because we remove from set
+            for ref_node in graph.var_refs:
+                def_nodes = self.var_key_to_def_nodes.get(ref_node.key)
+                if def_nodes:
+                    for def_node in def_nodes:
+                        def_node.create_edge(ref_node, LinkType.REFERENCE)
+                    unresolved_refs.remove(ref_node)
+
             if op_link_type:
                 for op_node in graph.op_nodes:
                     for sink in old_sinks:
@@ -320,23 +346,38 @@ class ExtControlFlowGraph:
 
             type_label = None
             if isinstance(node, DataNode):
-                if node.kind == DataNode.Kind.VARIABLE_USAGE:
-                    type_label = GumTree.TypeLabel.NAME_LOAD
-                elif node.kind == DataNode.Kind.VARIABLE_DECL:
-                    type_label = GumTree.TypeLabel.NAME_STORE
+                if isinstance(node.ast, ast.Attribute):
+                    if node.kind == DataNode.Kind.VARIABLE_USAGE:
+                        type_label = GumTree.TypeLabel.ATTRIBUTE_LOAD
+                    elif node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.ATTRIBUTE_STORE
+                elif isinstance(node.ast, ast.arg):
+                    if node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.SIMPLE_ARG
+                else:
+                    if node.kind == DataNode.Kind.VARIABLE_USAGE:
+                        type_label = GumTree.TypeLabel.NAME_LOAD
+                    elif node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.NAME_STORE
             elif isinstance(node, OperationNode):
                 if node.kind == OperationNode.Kind.ASSIGN:
                     type_label = GumTree.TypeLabel.ASSIGN
                 elif node.kind == OperationNode.Kind.METHOD_CALL:
-                    type_label = GumTree.TypeLabel.CALL
+                    type_label = GumTree.TypeLabel.METHOD_CALL
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
+                logger.info(f'fg node {node} is mapped to gt node {found}', show_pid=True)
+
                 node.gt_node = found
                 found.fg_node = node
             else:
-                logging.warning(f'Node {node} is not mapped to any gumtree node')
+                logger.warning(f'Node {node} is not mapped to any gumtree node', show_pid=True)
                 raise GumtreeMappingException
+
+        for node in gt.nodes:
+            if not node.fg_node:
+                logger.info(f'gt-fg mapping failed for node {node}', show_pid=True)
 
     @staticmethod
     def map_by_gumtree(fg1, fg2, gt_matches):
@@ -346,11 +387,9 @@ class ExtControlFlowGraph:
 
             invalid_mapping = False
             if not gt_src_node.fg_node:
-                # logging.error(f'Unable to find fg node for {gt_src_node.data}')
                 invalid_mapping = True
 
             if not gt_dest_node.fg_node:
-                # logging.error(f'Unable to find fg node for {gt_dest_node.data}')
                 invalid_mapping = True
 
             if invalid_mapping:
@@ -374,12 +413,18 @@ class ExtControlFlowGraph:
             if node.get_property(Node.Property.UNMAPPABLE):
                 continue
 
-            if node.gt_node.is_changed:
+            if node.gt_node.is_changed():
                 self.changed_nodes.add(node)
 
                 defs = node.get_definitions()
                 for d in defs:
                     self.changed_nodes.add(d)
+
+    def find_by_ast(self, ast_node):
+        for node in self.nodes:
+            if node.ast == ast_node:
+                return node
+        return None
 
 
 _statement_cnt = 0

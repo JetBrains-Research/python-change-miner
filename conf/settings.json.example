@@ -1,11 +1,20 @@
 {
   "gumtree_bin_path": str,
   "git_repositories_dir": str,
-  "patterns_min_frequency": int,
+  "change_graphs_storage_dir": str,
+  "patterns_output_dir": str
+  "patterns_min_frequency": int
+  "patterns_max_frequency": int,
+  "patterns_async_mining": true,
   "store_interval": int,
+
+  "logger_file_path": str,
+  "logger_file_log_level": str,
+  "logger_stdout_log_level": str,
 
   "use_stackimpact": bool,
   "stackimpact_agent_key": str,
 
-  "log_mapped_nodes": bool
+  "research_logs_dir": str,
+  "research_output_dir": str
 }

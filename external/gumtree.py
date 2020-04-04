@@ -1,5 +1,6 @@
 import json
 import subprocess
+from enum import Enum
 
 import settings
 
@@ -17,8 +18,9 @@ def diff(src1_path, src2_path):
     return json.loads(result) if result else {}
 
 
-def get_matches(src1_path, src2_path):
-    return diff(src1_path, src2_path).get('matches', {})
+def get_matches_and_actions(src1_path, src2_path):
+    result = diff(src1_path, src2_path)
+    return result.get('matches', {}), result.get('actions', {})
 
 
 def build_from_file(src_path):
@@ -27,14 +29,26 @@ def build_from_file(src_path):
 
 
 class GumTree:
+    class ActionType:
+        UPDATE = 'update'
+        DELETE = 'delete'
+        INSERT = 'insert'
+        MOVE = 'move'
+
     class TypeLabel:
         NAME_STORE = 'NameStore'
         NAME_LOAD = 'NameLoad'
-        CALL = 'Call'
+        METHOD_CALL = 'Call'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
+        ATTRIBUTE_STORE = 'AttributeStore'
         ATTRIBUTE_LOAD ='AttributeLoad'
         ATTR = 'attr'
+        RETURN = 'Return'
+        ARGS = 'arguments'
+        SIMPLE_ARGS = 'args'
+        DEFAULT_ARGS = 'defaults'
+        SIMPLE_ARG = 'arg'
 
     def __init__(self, source_path, data):
         self.node_id_to_node = {}
@@ -45,6 +59,8 @@ class GumTree:
 
         self.root = self.nodes[-1]
         self.source_path = source_path
+        self.matches = {}
+        self.actions = {}
 
     def _read_data(self, start_node, start_value=0):
         val = start_value
@@ -61,29 +77,44 @@ class GumTree:
         node = GumTreeNode(data=start_node)
         node.children = child_nodes
 
+        for child_node in node.children:
+            child_node.parent = node
+
         self.nodes.append(node)
         self.node_id_to_node[node.id] = node
 
         return node, val+1
 
     def find_node(self, pos, length, start_node=None, type_label=None):
-        if start_node is None:
-            start_node = self.root
+        node = start_node
 
-        if start_node.pos == pos and start_node.length == length:
-            if type_label is None or start_node.type_label == type_label:
-                return start_node
+        if node is None:
+            node = self.root
 
-        if start_node.children:
-            for child in start_node.children:
+        if node.pos == pos and node.length == length:
+            if type_label is None or node.type_label == type_label:
+                return node
+
+        if node.children:
+            for child in node.children:
                 result = self.find_node(pos, length, start_node=child, type_label=type_label)
                 if result:
                     return result
 
         return False
 
-    @classmethod
-    def apply_matching(cls, gt_src, gt_dest, matches):  # TODO: second call is not allowed yet
+    @staticmethod
+    def map(gt_src, gt_dest):
+        matches, actions = get_matches_and_actions(gt_src.source_path, gt_dest.source_path)
+
+        GumTree._apply_matching(gt_src, gt_dest, matches)
+        GumTree._apply_actions(gt_src, gt_dest, actions)
+        GumTree._adjust_changes(gt_src, gt_dest)
+
+    @staticmethod
+    def _apply_matching(gt_src, gt_dest, matches):
+        gt_src.matches = gt_dest.matches = matches
+
         for match in matches:
             src = gt_src.node_id_to_node[int(match.get('src'))]
             dest = gt_dest.node_id_to_node[int(match.get('dest'))]
@@ -91,44 +122,90 @@ class GumTree:
             src.mapped = dest
             dest.mapped = src
 
+    @staticmethod
+    def _apply_actions(gt_src, gt_dest, actions):
+        gt_src.actions = gt_dest.actions = actions
+
+        for action in actions:
+            action_name = action['action']
+            node_id = int(action['tree'])
+
+            if action_name == GumTree.ActionType.UPDATE:
+                node1 = gt_src.node_id_to_node[node_id]
+                node1.status = GumTreeNode.STATUS.UPDATED
+                node1.mapped.status = GumTreeNode.STATUS.UPDATED
+            elif action_name == GumTree.ActionType.DELETE:
+                node1 = gt_src.node_id_to_node[node_id]
+                node1.status = GumTreeNode.STATUS.DELETED
+            elif action_name == GumTree.ActionType.MOVE:
+                node1 = gt_src.node_id_to_node[node_id]
+                node1.status = GumTreeNode.STATUS.MOVED
+                node1.mapped.status = GumTreeNode.STATUS.MOVED
+            elif action_name == GumTree.ActionType.INSERT:
+                node2 = gt_dest.node_id_to_node[node_id]
+                node2.status = GumTreeNode.STATUS.INSERTED
+            else:
+                raise ValueError('Undefined action given by gumtree diff')
+
+    @classmethod
+    def _adjust_changes(cls, gt_src, gt_dest):
         gt_src.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
-        gt_dest.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
+
+        # for gt in [gt_src, gt_dest]:
+        #     for node in gt.nodes:
+        #         # simple method call should have status.updated if inner code changes
+        #         # attr method call has status.unchanged though
+        #         if node.type_label in [GumTree.TypeLabel.METHOD_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
+        #             max_status = GumTreeNode.STATUS.UNCHANGED
+        #
+        #             def upd_max_status(gt_node):
+        #                 nonlocal max_status
+        #                 max_status = max(max_status, gt_node.status)
+        #
+        #             gt.dfs(fn_after=upd_max_status, start_node=node)
+        #             node.status = max_status
 
     @classmethod
     def _change_detector_before_visited(cls, node):
         if node.type_label != GumTree.TypeLabel.ATTRIBUTE_LOAD:
             return True
 
-        node.is_changed = cls._change_detector(node.get_child_by_type_label(GumTree.TypeLabel.ATTR))
+        is_changed = cls._change_detector(node.get_child_by_type_label(GumTree.TypeLabel.ATTR))
+        if not is_changed:
+            node.status = GumTreeNode.STATUS.UNCHANGED
+
         return False
 
-    # TODO: is_changed flags not set to False
-    # TODO: can be optimised
     @classmethod
     def _change_detector(cls, node):
-        node.is_changed = not node.mapped or not node.is_equal(node.mapped)
-        if not node.is_changed:
+        is_changed = not node.mapped or not node.is_equal(node.mapped)
+        if not is_changed:
             if not node.children:
-                node.is_changed = bool(len(node.mapped.children))
+                is_changed = bool(len(node.mapped.children))
             else:
-                node.is_changed = not len(node.mapped.children)
-                if not node.is_changed:
-                    if node.type_label == 'Call':
+                is_changed = not len(node.mapped.children)
+                if not is_changed:
+                    if node.type_label == GumTree.TypeLabel.METHOD_CALL:
                         attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
                         if attr_load:
-                            node.is_changed = attr_load.is_changed
-                            return node.is_changed
+                            is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)
 
-                    cls._base_children_change_detector(node)
-        return node.is_changed
+                    if not is_changed:
+                        is_changed = cls._are_children_changed(node)
+
+        if not is_changed:
+            node.status = GumTreeNode.STATUS.UNCHANGED
+            if node.mapped:
+                node.mapped.status = GumTreeNode.STATUS.UNCHANGED
+
+        return is_changed
 
     @staticmethod
-    def _base_children_change_detector(node):
+    def _are_children_changed(node):
         for child in node.children:
-            if not child.is_changed:
-                break
-        else:
-            node.is_changed = True
+            if child.status == GumTreeNode.STATUS.UNCHANGED:
+                return False
+        return True
 
     @classmethod
     def _do_dfs(cls, node, visited, fn_before=None, fn_after=None):
@@ -145,11 +222,37 @@ class GumTree:
         if fn_after:
             fn_after(node)
 
-    def dfs(self, fn_before=None, fn_after=None):
-        self._do_dfs(self.root, {}, fn_before=fn_before, fn_after=fn_after)
+    def dfs(self, fn_before=None, fn_after=None, start_node=None):
+        self._do_dfs(start_node or self.root, {}, fn_before=fn_before, fn_after=fn_after)
+
+        # if node.type_label == 'Call':  # TODO: it's better to move this into node.is_equal
+        #     attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+        #     if attr_load:
+        #         node.is_changed = attr_load.is_changed
+        #         return node.is_changed
+        #
+        #     name_load = node.get_child_by_type_label(GumTree.TypeLabel.NAME_LOAD)
+        #     if name_load:
+        #         node.is_changed = name_load.is_changed
+        #         return node.is_changed
+        #
+        # cls._base_children_change_detector(node)
 
 
 class GumTreeNode:
+    class STATUS(Enum):
+        UNCHANGED = 0
+        CHANGED = 1
+        INSERTED = 2
+        DELETED = 3
+        MOVED = 4
+        UPDATED = 5
+
+        def __lt__(self, other):
+            if self.__class__ is other.__class__:
+                return self.value < other.value
+            raise TypeError
+
     def __init__(self, data):
         self.id = data['id']
 
@@ -163,7 +266,19 @@ class GumTreeNode:
         self.mapped = None
 
         self.fg_node = None
-        self.is_changed = False
+
+        self.parent = None
+        self.status = GumTreeNode.STATUS.CHANGED
+
+    def is_changed(self):
+        if self.status != GumTreeNode.STATUS.UNCHANGED:
+            return True
+
+        if self.parent and self.parent.type_label == GumTree.TypeLabel.EXPR:
+            if self.parent.status != GumTreeNode.STATUS.UNCHANGED:
+                return True
+
+        return False
 
     def is_equal(self, node):
         fst_data = {k: self.data[k] for k in self.data.keys() if k in ['label', 'type', 'typeLabel']}
@@ -177,4 +292,4 @@ class GumTreeNode:
         return None
 
     def __repr__(self):
-        return f'#{self.id} {self.type_label} [{self.pos}:{self.length}]'
+        return f'#{self.id} {self.type_label} {self.label} [{self.pos}:{self.length}]'

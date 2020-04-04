@@ -1,9 +1,11 @@
-graphviz
-asttokens
-pydriller
-pytest
+graphviz==0.13.2
+asttokens==2.0.3
+pydriller==1.12
+
+pytest==5.3.5
 
 # dev dependencies
-stackimpact
-guppy3
-objgraph
+stackimpact==1.2.7
+guppy3==3.0.9
+objgraph==3.4.1
+matplotlib==3.2.0

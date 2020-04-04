@@ -1,4 +1,5 @@
 import graphviz as gv
+import os
 
 from pyflowgraph.models import Node
 from changegraph.models import ChangeGraph, ChangeNode
@@ -64,11 +65,13 @@ def _convert_to_visual_graph(graph: ChangeGraph, file_name: str, separate_mapped
     return _get_nodes_digraph(graph.nodes, file_name, separate_mapped=separate_mapped)
 
 
-def export_graph_image(graph: ChangeGraph, path: str = 'change-graph'):
-    visual_graph = _convert_to_visual_graph(graph, path.split('/')[-1])
-    visual_graph.render(path)
+def export_graph_image(graph: ChangeGraph, path: str = 'change-graph.dot'):
+    directory, file_name = os.path.split(path)
+    visual_graph = _convert_to_visual_graph(graph, file_name)
+    visual_graph.render(filename=file_name, directory=directory)
 
 
-def print_out_nodes(nodes: set, path: str = 'images/nodes'):
-    visual_graph = _get_nodes_digraph(nodes, path.split('/')[-1])
-    visual_graph.render(path)
+def print_out_nodes(nodes: set, path: str = 'nodes.dot'):
+    directory, file_name = os.path.split(path)
+    visual_graph = _get_nodes_digraph(nodes, file_name)
+    visual_graph.render(filename=path, directory=directory)

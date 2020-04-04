@@ -1,5 +1,5 @@
 html, body, div, span {
-    font-size: 14px;
+    font-size: 16px;
     padding: 0;
     margin: 0;
 }
@@ -8,27 +8,114 @@ body {
     padding: 8px;
 }
 
-.tab {
-    margin-left: 8px;
+a {
+    color: rebeccapurple;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.highlighted {
+    font-weight: bold;
+    font-size: 14px;
 }
 
 #before_code_block .highlighted {
     color: red;
-    font-weight: bold;
 }
 
 #after_code_block .highlighted {
     color: green;
-    font-weight: bold;
 }
 
 .code {
-    background-color: #f5f5f5;
-    padding: 8px;
+    background-color: #f2f2f2;
+    border: 1px solid #f2f2f2;
 }
 
 #commit_hash, #repo, .title {
-    font-size: 16px;
     color: black;
     margin: 4px 0;
+}
+
+#commit_hash, .title {
+    cursor: pointer;
+}
+
+#repo a {
+    font-size: 16px;
+    margin: 4px 0;
+}
+
+.code {
+    cursor: default;
+}
+
+.code .line {
+    display: table-row;
+    cursor: default;
+}
+
+.code .line:hover {
+    text-decoration: none;
+}
+
+.code .line .line-content {
+    display: table-cell;
+    width: 100%;
+
+    padding-left: 4px;
+    margin: 0;
+
+    color: black;
+    font-size: 14px;
+}
+
+/*.code .line:first-child .line-number, .code .line:first-child .line-content {*/
+/*    padding-top: 8px;*/
+/*}*/
+
+/*.code .line:last-child .line-number, .code .line:last-child .line-content {*/
+/*    padding-bottom: 8px;*/
+/*}*/
+
+.code .line .line-number {
+    display: table-cell;
+    vertical-align: middle;
+
+    font-size: 14px;
+    margin: 0 8px 0 0;
+    padding: 0 4px;
+
+    text-align: right;
+
+    color: #0052cc;
+    background-color: white;
+    border-right: 1px solid #dfe1e6;
+
+    user-select: none;
+}
+
+.code .line.clickable:hover {
+    cursor: pointer;
+}
+
+.code .line.clickable:hover .line-content {
+    background-color: #fcf160;
+}
+
+.title {
+    width: auto;
+    display: inline-block;
+}
+
+.title:hover {
+    text-decoration: underline;
+}
+
+.item {
+    float: left;
+    clear: left;
 }

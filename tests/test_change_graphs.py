@@ -1,9 +1,8 @@
-import logging
 import tempfile
 import os
 
 import changegraph
-import tests.tools as tools
+import tests.utils as utils
 
 
 def _try_build_change_graph(src, dest):
@@ -26,16 +25,16 @@ def _try_build_change_graph(src, dest):
 
 
 def test_for_statement1():
-    src = tools.remove_tabs("""
+    src = utils.format_src("""
         a = [1,2,3]
         for i in range(len(a)):
             print(i)
-    """, tabs=2)
-    dest = tools.remove_tabs("""
+    """)
+    dest = utils.format_src("""
         a = [4,5,6]
         for i in range(len(a)):
             print(i)
-    """, tabs=2)
+    """)
     assert _try_build_change_graph(src, dest) is not None
 
 
@@ -50,14 +49,14 @@ def test_for_statement1():
 
 
 def test_var_rename1():
-    src = tools.remove_tabs("""
+    src = utils.format_src("""
         a = 10
         b = a + 1
-    """, tabs=2)
-    dest = tools.remove_tabs("""
+    """)
+    dest = utils.format_src("""
         d = 12
         b = d + 1
-    """, tabs=2)
+    """)
     cg = _try_build_change_graph(src, dest)
     assert len(cg.nodes) == 8
 

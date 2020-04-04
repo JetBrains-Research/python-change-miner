@@ -1,4 +1,5 @@
 import graphviz as gv
+import os
 
 from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, EntryNode
 
@@ -21,8 +22,9 @@ def _get_label_and_attrs(node, show_op_kind=True):
     return label, attrs
 
 
-def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False,
-                             separate_mapped=True):
+def _convert_to_visual_graph(
+        graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False, separate_mapped=True):
+
     vg = gv.Digraph(name=file_name, format='pdf')
 
     used = {}
@@ -63,6 +65,7 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str, show_op
     return vg
 
 
-def export_graph_image(graph: ExtControlFlowGraph, file_name: str = 'G2'):
+def export_graph_image(graph: ExtControlFlowGraph, path: str = 'pfg.dot'):
+    directory, file_name = os.path.split(path)
     visual_graph = _convert_to_visual_graph(graph, file_name, show_control_branch=True)
-    visual_graph.render(f'images/{file_name}')
+    visual_graph.render(path)

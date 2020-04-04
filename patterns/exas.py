@@ -1,6 +1,15 @@
 from pyflowgraph.models import LinkType
 
 
+import sys
+HALF_N = sys.maxsize // 2
+N = HALF_N * 2
+
+
+def normalize(value):
+    return (value + HALF_N) % N - HALF_N
+
+
 class ExasFeature:
     """
     Features characterize code fragments
@@ -26,7 +35,7 @@ class ExasFeature:
 
     def _bind_node_feature_ids(self, nodes):
         for num, node in enumerate(nodes):
-            self.node_label_to_feature_id[node.label] = num + 1  # id skip is not critical, because of the same objects
+            self.node_label_to_feature_id[node.label] = num + 1  # some ids can be skipped
 
     def get_id_by_label(self, label):
         return self.node_label_to_feature_id.get(label)
@@ -39,9 +48,9 @@ class ExasFeature:
                 s = self.node_label_to_feature_id.get(label)
             else:
                 s = self.edge_label_to_feature_id.get(label, 0)
-                s = s << 5  # TODO: are 2^4 exas types rly enough?
-                result = result << 8
+                s = normalize(s << 5)  # 2^4 types
+                result = normalize(result << 8)
 
-            result += s
+            result = normalize(result + s)
 
         return result

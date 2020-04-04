@@ -1,61 +1,52 @@
-import logging
 import time
-import os
 
+from log import logger
 import pyflowgraph
 from changegraph.models import ChangeNode, ChangeGraph, ChangeEdge
 from pyflowgraph.models import ExtControlFlowGraph, Node
 from external.gumtree import GumTree
 from external import gumtree
-import vb_utils
-import settings
 
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
     def build_from_files(self, path1, path2, repo_info=None):
-        process_id = os.getpid()
-        log_mapped_nodes = settings.get('log_mapped_nodes', False)
-
-        logging.warning(f'#{process_id}: Change graph building...')
-        gt_matches = gumtree.get_matches(path1, path2)
+        start_building = time.time()
+        logger.log(logger.WARNING, f'Change graph building...', show_pid=True)
 
         start = time.time()
         gt1, gt2 = gumtree.build_from_file(path1), gumtree.build_from_file(path2)
-        GumTree.apply_matching(gt1, gt2, gt_matches)
-        vb_utils.time_log(f'#{process_id}: Gumtree... OK', start)
+        GumTree.map(gt1, gt2)
+        logger.warning('Gumtree... OK', start_time=start, show_pid=True)
 
-        if log_mapped_nodes:
-            for node in gt1.nodes:
-                if node.mapped:
-                    logging.warning(f'Gumtree node {node} mapped to {node.mapped}')
+        for node in gt1.nodes:
+            if node.mapped:
+                logger.info(f'Gumtree node {node} mapped to {node.mapped}', show_pid=True)
 
         start = time.time()
         fg1 = pyflowgraph.build_from_file(path1)
         fg2 = pyflowgraph.build_from_file(path2)
-        vb_utils.time_log(f'#{process_id}: Flow graphs... OK', start)
+        logger.warning('Flow graphs... OK', start_time=start, show_pid=True)
 
         start = time.time()
         fg1.map_to_gumtree(gt1)
         fg2.map_to_gumtree(gt2)
-        ExtControlFlowGraph.map_by_gumtree(fg1, fg2, gt_matches)
-        vb_utils.time_log(f'#{process_id}: Mapping... OK', start)
+        ExtControlFlowGraph.map_by_gumtree(fg1, fg2, gt1.matches)
+        logger.warning('Mapping... OK', start_time=start, show_pid=True)
 
-        if log_mapped_nodes:
-            for node in fg1.nodes:
-                if node.mapped:
-                    logging.warning(f'FG node {node} mapped to {node.mapped}, '
-                                    f'GT node {node.gt_node} to {node.mapped.gt_node}, '
-                                    f'is_changed={node.gt_node.is_changed}')
+        for node in fg1.nodes:
+            if node.mapped:
+                logger.log(logger.INFO, f'FG node {node} mapped to {node.mapped}, '
+                                        f'GT node {node.gt_node} to {node.mapped.gt_node}, '
+                                        f'status={node.gt_node.status} '
+                                        f'and is_changed={node.gt_node.is_changed()}', show_pid=True)
 
-        start = time.time()
         for node in fg2.nodes:
             node.version = Node.Version.AFTER_CHANGES
         cg = self._create_change_graph(fg1, fg2, repo_info=repo_info)
-        vb_utils.time_log(f'#{process_id}: Change graph... OK', start)
+        logger.warning('Change graph building... OK', start_time=start_building, show_pid=True)
 
-        if log_mapped_nodes:
-            for node in cg.nodes:
-                logging.warning(f'CG node {node}')
+        for node in cg.nodes:
+            logger.info(f'Change graph has node {node}', show_pid=True)
 
         return cg
 

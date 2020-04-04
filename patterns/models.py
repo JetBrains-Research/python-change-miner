@@ -1,8 +1,14 @@
 import copy
+import time
+import multiprocessing
+import functools
 
+from typing import Set, Optional, Dict, FrozenSet, Tuple
+
+from log import logger
 from pyflowgraph.models import LinkType, Node
 from changegraph.models import ChangeNode
-from patterns.exas import ExasFeature
+from patterns.exas import ExasFeature, normalize
 import settings
 import vb_utils
 
@@ -18,10 +24,20 @@ class CharacteristicVector:
         self.data[feature_id] = self.data.get(feature_id, 0) + 1
 
     def get_hash(self):
+        logger.log(logger.DEBUG, f'Getting vector hash, data size = {len(self.data)}')
+
         result = 0
         for key in sorted(self.data.keys()):
-            result = result * 31 + self.data[key]
+            result = normalize(result * 31 + self.data[key])
+
+        logger.log(logger.DEBUG, f'Hash calculated, value = {result}')
         return result
+
+    def __copy__(self):
+        cls = self.__class__
+        o = cls.__new__(cls)
+        o.data = copy.copy(self.data)
+        return o
 
 
 class Fragment:
@@ -34,17 +50,25 @@ class Fragment:
     LABEL_SEPARATOR = '-'
 
     def __init__(self):
+        self.id_sum = 0  # boosting fragment comparision todo: int overflow?
+
         self.parent = None
         self.graph = None
-        self.nodes = set()
+        self.nodes = []
         self.vector = CharacteristicVector()
+
+    @property
+    def size(self):
+        return len(self.nodes)
 
     @classmethod
     def create_from_node_pair(cls, pair):
         f = Fragment()
-        f.nodes.add(pair[0])
-        f.nodes.add(pair[1])
+        f.nodes.append(pair[0])
+        f.nodes.append(pair[1])
         f.graph = pair[0].graph
+
+        f.id_sum = pair[0].id + pair[1].id
 
         f.__init_vector_from_pair(pair)
 
@@ -59,7 +83,7 @@ class Fragment:
         self.vector.add_feature(exas_feature.get_id_by_labels(labels=[pair[0].label, LinkType.MAP, pair[1].label]))
 
     @classmethod
-    def create_extended(cls, fragment, ext_nodes):
+    def create_extended(cls, fragment, ext_nodes: tuple):
         f = Fragment()
         f.parent = fragment
         f.graph = fragment.graph
@@ -67,18 +91,23 @@ class Fragment:
         f.nodes = copy.copy(fragment.nodes)
         f.vector = copy.copy(fragment.vector)
 
+        f.id_sum = fragment.id_sum
         for node in ext_nodes:
-            f.nodes.add(node)
+            f.id_sum += node.id
+            f.nodes.append(node)
+
+            logger.debug(f'Recalc vector for fragment {fragment} with node {node}', show_pid=True)
             f.__recalc_vector(node, f.nodes)
 
         return f
 
-    def __recalc_vector(self, node, ext_nodes):
-        exas_feature = ExasFeature(nodes=ext_nodes)
+    def __recalc_vector(self, node, ext_by_one_nodes):
+        exas_feature = ExasFeature(nodes=ext_by_one_nodes)
         sequence = [node.label]
         self.__exas_backward_dfs(node, node, sequence, exas_feature)
 
     def __exas_backward_dfs(self, first_node, last_node, sequence, exas_feature):
+        logger.debug('Entering backward dfs', show_pid=True)
         self.__exas_forward_dfs(last_node, sequence, exas_feature)
 
         if len(sequence) < ExasFeature.MAX_LENGTH:
@@ -91,6 +120,9 @@ class Fragment:
                     del sequence[0]
 
     def __exas_forward_dfs(self, node, sequence, exas_feature):
+        logger.debug('Entering forward dfs', show_pid=True)
+        logger.debug(f'Adding a feature for sequence: {sequence}', show_pid=True)
+
         feature_id = exas_feature.get_id_by_labels(sequence)
         self.vector.add_feature(feature_id)
 
@@ -99,46 +131,38 @@ class Fragment:
                 if e.node_to in self.nodes:
                     sequence.append(e.label)
                     sequence.append(e.node_to.label)
-                    self.__exas_forward_dfs(node, sequence, exas_feature)
+                    self.__exas_forward_dfs(e.node_to, sequence, exas_feature)
                     del sequence[-1]
                     del sequence[-1]
 
-    def get_label_to_extensions(self):
-        """
-        An extension is a list of nodes, with which we can extend a graph of the fragment
-        """
-        adjacent_nodes = set()
+    def get_label_to_ext_list(self):
+        adjacent_nodes = []
         for node in self.nodes:
             for in_node in node.get_in_nodes():
                 if in_node not in self.nodes:
-                    adjacent_nodes.add(in_node)
+                    adjacent_nodes.append(in_node)
 
             for out_node in node.get_out_nodes():
                 if out_node not in self.nodes:
-                    adjacent_nodes.add(out_node)
+                    adjacent_nodes.append(out_node)
 
-        label_to_extensions = {}
+        label_to_extensions: Dict[Set[Tuple]] = {}  # str to list of tuples
         for node in adjacent_nodes:
-            # FIXME: what the hell below?
-            # if ((node.isCoreAction() | | node.isControl())
-            # & & lasts[node.getVersion()] != null
-            # & & node.getLabel().equals(lasts[node.getVersion()].getLabel()))
-            # continue;
             if node.kind == ChangeNode.Kind.DATA_NODE:
                 if node.sub_kind == ChangeNode.SubKind.DATA_LITERAL:
-                    self._add_extensions(label_to_extensions, node)
+                    self._add_extension(label_to_extensions, node)
                 else:
                     defs = node.get_definitions()
                     if not defs:
-                        refs, non_refs = node.get_out_nodes(separation_label=LinkType.REFERENCE)
-                        if non_refs.intersection(self.nodes):
-                            self._add_extensions(label_to_extensions, node)
+                        refs, non_refs = node.get_out_nodes(separation_label=LinkType.REFERENCE)  # todo refs not used
+                        if non_refs.intersection(set(self.nodes)):  # todo: review
+                            self._add_extension(label_to_extensions, node)
                         else:
                             for next_node in non_refs:
-                                self._add_extensions_chain(label_to_extensions, node, next_node)
+                                self._add_extension_chain(label_to_extensions, node, next_node)
             elif node.kind == ChangeNode.Kind.OPERATION_NODE:
                 if node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
-                    self._add_extensions(label_to_extensions, node)
+                    self._add_extension(label_to_extensions, node)
                 else:
                     self._magic_extension_processor(label_to_extensions, node)
             elif node.kind == ChangeNode.Kind.CONTROL_NODE:
@@ -147,7 +171,7 @@ class Fragment:
         return label_to_extensions
 
     @staticmethod
-    def _add_extensions(label_to_exts, node):
+    def _add_extension(label_to_exts, node):
         label = node.label
         if node.mapped:
             label += Fragment.LABEL_SEPARATOR + node.mapped.label
@@ -156,7 +180,7 @@ class Fragment:
         s.add((node, node.mapped) if node.mapped else (node,))
 
     @staticmethod
-    def _add_extensions_chain(label_to_exts, node, next_node):
+    def _add_extension_chain(label_to_exts, node, next_node):
         label = node.label
         if node.mapped:
             label += Fragment.LABEL_SEPARATOR + node.mapped.label
@@ -199,59 +223,60 @@ class Fragment:
                         break
 
                 if found:
-                    self._add_extensions(label_to_exts, node)
+                    self._add_extension(label_to_exts, node)
                 else:
                     for next_node in out_nodes:
                         if next_node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
-                            self._add_extensions_chain(label_to_exts, node, next_node)
+                            self._add_extension_chain(label_to_exts, node, next_node)
             else:
                 for next_node in in_nodes:
-                    self._add_extensions_chain(label_to_exts, node, next_node)
+                    self._add_extension_chain(label_to_exts, node, next_node)
 
     @classmethod
-    def create_groups(cls, fragments):
-        groups = set()
-        hash_to_fragments = cls._get_hash_to_fragments(fragments)
-        for fragments in hash_to_fragments.values():
-            groups = groups.union(cls._group_same_hash_fragments(fragments))
+    def create_groups(cls, fragments: set):
+        groups: Set[FrozenSet[Fragment]] = set()
+
+        hash_to_fragments: Dict[int, Set[Fragment]] = cls._get_hash_to_fragments(fragments)
+        logger.info(f'Done hash calculations, buckets={len(hash_to_fragments.keys())}', show_pid=True)
+
+        for key, fragments in hash_to_fragments.items():
+            logger.debug(f'Bucket hash = {key}', show_pid=True)
+            groups = groups.union(cls._group_same_hash_fragments(fragments))  # do grouping within calculated hash
         return groups
 
     @classmethod
-    def _group_same_hash_fragments(cls, fragments):
-        fragment_groups = set()
+    def _group_same_hash_fragments(cls, fragments: set):
+        groups: Set[FrozenSet[Fragment]] = set()
         while len(fragments) > 0:
             fragment = next(iter(fragments))
             fragments.remove(fragment)
-            new_group = cls._get_fragment_group(fragments, fragment)
-            if new_group:
-                fragment_groups.add(new_group)
-        return fragment_groups
 
-    @classmethod
-    def _get_fragment_group(cls, fragments, fragment):
-        group = [fragment]
+            group: Set[Fragment] = set()
+            group.add(fragment)
 
-        for curr_fragment in fragments:
-            if fragment.vector.data == curr_fragment.vector.data:
-                group.append(curr_fragment)
+            for fr in copy.copy(fragments):
+                if fragment.vector.data == fr.vector.data:
+                    group.add(fr)
+                    fragments.remove(fr)
 
-        # TODO: in the source there are also genesis fragments' groups checks
-        group = cls._remove_duplicates(group)
-        if len(group) >= Pattern.MIN_FREQUENCY:
-            return tuple(group)
-
-        return None
+            # TODO: in the source there are also genesis fragments' groups checks, why?
+            if len(group) >= Pattern.MIN_FREQUENCY:
+                group: Set[Fragment] = cls._remove_duplicates(group)
+                if len(group) >= Pattern.MIN_FREQUENCY:
+                    logger.log(logger.INFO, f'A new group has been created, len = {len(group)}', show_pid=True)
+                    groups.add(frozenset(group))
+        return groups
 
     @staticmethod
     def _remove_duplicates(group):
         if len(group) < Pattern.MIN_FREQUENCY:
             return group
 
-        vb_utils.filter_list(
-            group,
-            condition=lambda i, j: group[i].is_equal(group[j])
-        )
-        return group
+        lst = list(group)  # todo escape convertions
+        vb_utils.filter_list(lst, condition=lambda i, j: lst[i].is_equal(lst[j]))
+        logger.log(logger.INFO, f'Remove duplicates: affected {len(group) - len(lst)} items', show_pid=True)
+
+        return set(lst)
 
     @staticmethod
     def _get_hash_to_fragments(fragments):
@@ -263,15 +288,17 @@ class Fragment:
         return hash_to_fragments
 
     def overlap(self, fragment):
-        intersection = self.nodes.intersection(fragment.nodes)
+        intersection = set(self.nodes).intersection(set(fragment.nodes))  # todo: performance analysis
         for node in intersection:
             if node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
                 return True
         return False
 
     def is_equal(self, fragment):
-        # TODO: the source uses idsum to optimize comparision
-        return self.nodes == fragment.nodes
+        if self.id_sum != fragment.id_sum:  # todo: performance analysis
+            return False
+
+        return set(self.nodes) == set(fragment.nodes)  # todo: performance analysis
 
     def is_change(self):
         has_old = False
@@ -290,100 +317,140 @@ class Fragment:
         return has_unmapped_change and has_old and has_new
 
     def contains(self, fragment):
-        # TODO not working?
-        # if self.graph != fragment.graph:
-        #     return False
-        return len(self.nodes) >= len(fragment.nodes) and fragment.nodes.issubset(self.nodes)
+        if self.graph != fragment.graph or self.id_sum < fragment.id_sum or self.size < fragment.size:
+            return False
+
+        return set(fragment.nodes).issubset(set(self.nodes))
 
 
 class Pattern:
+    DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 1)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
 
     def __init__(self, fragments, freq=None):
-        self.id = None  # undefined until the pattern is not added to a miner
+        self.id: Optional[int] = None  # unset until the pattern is not added to a miner
 
-        self.fragments = fragments
-        self.freq = freq
+        self.fragments: Set[Fragment] = fragments
+        self.freq: int = freq
 
-        self.repr = next(iter(fragments))
+        self.repr: Fragment = next(iter(fragments))
 
     @property
     def size(self):
         return len(self.repr.nodes)
 
-    def extend(self, miner):
-        label_to_fragment_to_exts = {}  # exts = set, ext = list of nodes
+    def extend(self, iteration=1):
+        logger.log(logger.WARNING, f'Extending pattern with fragments cnt = {len(self.fragments)}')
+
+        label_to_fragment_to_ext_list = {}  # ext list = list of tuples, ext = tuple
         for fragment in self.fragments:
-            label_to_exts = fragment.get_label_to_extensions()
-            for label, exts in label_to_exts.items():
-                d = label_to_fragment_to_exts.setdefault(label, {})
+            label_to_ext_list = fragment.get_label_to_ext_list()
+            for label, exts in label_to_ext_list.items():
+                d = label_to_fragment_to_ext_list.setdefault(label, {})
                 d[fragment] = exts
 
-        freq_group = set()
-        freq = self.MIN_FREQUENCY - 1
+        freq_group: Set[Fragment] = set()
+        freq: int = self.MIN_FREQUENCY - 1
 
-        for label, fragment_to_exts in label_to_fragment_to_exts.items():
-            if len(fragment_to_exts) < self.MIN_FREQUENCY:
-                continue
+        label_to_fragment_to_ext_list = {
+            k: v for k, v in label_to_fragment_to_ext_list.items()
+            if len(v) >= self.MIN_FREQUENCY
+        }
 
-            ext_fragments = set()
-            for fragment, exts in fragment_to_exts.items():
-                for ext_nodes in exts:
-                    ext_fragment = Fragment.create_extended(fragment, ext_nodes)
-                    ext_fragments.add(ext_fragment)
+        if not self.DO_ASYNC_MINING:
+            for label_num, (label, fragment_to_ext_list) in enumerate(label_to_fragment_to_ext_list.items()):
+                curr_group, curr_freq = self._get_most_freq_group_and_freq_in_label(
+                    len(label_to_fragment_to_ext_list), (label_num, (label, fragment_to_ext_list)))
 
-            is_giant = self._is_giant_extension(ext_fragments)
-            curr_group, curr_freq = self._get_most_frequent_group_and_freq(ext_fragments, is_giant)
+                if curr_freq > freq:
+                    freq_group = curr_group
+                    freq = curr_freq
+        else:
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+                fn = functools.partial(self._get_most_freq_group_and_freq_in_label, len(label_to_fragment_to_ext_list))
 
-            if curr_freq > freq:  # todo plus lattice, getting most frequent group one more time
-                freq_group = curr_group
-                freq = curr_freq
+                for curr_group, curr_freq in pool.imap_unordered(
+                        fn, enumerate(label_to_fragment_to_ext_list.items()), chunksize=1):
+
+                    if curr_freq > freq:  # todo plus lattice, getting most frequent group one more time
+                        freq_group = curr_group
+                        freq = curr_freq
+
+        logger.log(logger.WARNING, f'The most freq group has freq={freq} and fr cnt={len(freq_group)}')
 
         if freq >= Pattern.MIN_FREQUENCY:
             extended_pattern = Pattern(freq_group, freq)
-            extended_pattern.extend(miner)
+
+            new_nodes = []
+            for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
+                new_nodes.append(extended_pattern.repr.nodes[ix])
+
+            logger.info(f'Pattern {[node.label for node in self.repr.nodes]} was extended with '
+                        f'labels {[node.label for node in new_nodes]}, '
+                        f'new size={extended_pattern.size}, '
+                        f'fragments cnt={len(extended_pattern.fragments)}, '
+                        f'iteration = {iteration}')
+
+            return extended_pattern.extend(iteration=iteration+1)
         elif self.is_change():
-            miner.add_pattern(self)
+            logger.log(logger.WARNING, f'Done extend() for a pattern with success')
+            return self
+
+    def _get_most_freq_group_and_freq_in_label(self, labels_cnt, data):
+        label_index, (label, fragment_to_ext_list) = data
+
+        ext_fragments = set()
+        for fragment, ext_list in fragment_to_ext_list.items():
+            for ext in ext_list:
+                ext_fragment = Fragment.create_extended(fragment, ext)
+                ext_fragments.add(ext_fragment)
+
+        logger.warning(f'Extending for label #{label}# [{1+label_index}/{labels_cnt}] '
+                       f'ext fragments = {len(ext_fragments)}', show_pid=True)
+
+        is_giant = self._is_giant_extension(ext_fragments)
+
+        freq_group, freq = self._get_most_freq_group_and_freq_for_fragments(ext_fragments, is_giant)
+        logger.info(f'Got freq_group for label, freq={freq}, len={len(freq_group)}', show_pid=True)
+        return freq_group, freq
 
     def _is_giant_extension(self, ext_fragments):
         return self.size > 1 and \
                (len(ext_fragments) > Pattern.MAX_FREQUENCY or
                 len(ext_fragments) > len(self.fragments) * self.size * self.size)
 
-    def _get_most_frequent_group_and_freq(self, ext_fragments: set, is_giant):
-        groups = Fragment.create_groups(ext_fragments)  # set of tuples of fragments
+    def _get_most_freq_group_and_freq_for_fragments(self, ext_fragments: set, is_giant):
+        start = time.time()
+        groups: Set[FrozenSet[Fragment]] = Fragment.create_groups(ext_fragments)
+        logger.log(logger.INFO, f'Groups for {len(ext_fragments)} fragments created', start_time=start, show_pid=True)
 
-        freq_group = set()
+        freq_group: Set[Fragment] = set()
         freq = self.MIN_FREQUENCY - 1
 
         for curr_group in groups:
-            overlapped_fragments = self._get_graph_overlapped_fragments(curr_group)
-
-            curr_group = list(curr_group)
+            overlapped_fragments: list = self._get_graph_overlapped_fragments(curr_group)
             curr_freq = len(curr_group) - len(overlapped_fragments)
 
-            if is_giant and self._is_giant_extension(curr_group):
-                for fragment in overlapped_fragments:
-                    curr_group.remove(fragment)
-
             if curr_freq > freq:
+                curr_group = set(curr_group)
+                if is_giant and self._is_giant_extension(curr_group):
+                    for fragment in overlapped_fragments:
+                        curr_group.remove(fragment)
+
                 freq_group = curr_group
                 freq = curr_freq
 
         return freq_group, freq
 
     @staticmethod
-    def _get_graph_overlapped_fragments(ext_fragments):
+    def _get_graph_overlapped_fragments(ext_fragments: frozenset):
         """
         Return fragments, which are overlapped in a graph by other fragments.
-
-        :param ext_fragments:
-        :return:
         """
         graph_to_fragments = {}
         for fragment in ext_fragments:
-            s = graph_to_fragments.setdefault(fragment.graph, list())
+            s = graph_to_fragments.setdefault(fragment.graph, [])
             s.append(fragment)
 
         overlapped_fragments = []
@@ -402,8 +469,14 @@ class Pattern:
         return self.repr.is_change()
 
     def contains(self, pattern):
-        for fragment1 in self.fragments:
-            for fragment2 in pattern.fragments:
+        if self.size < pattern.size:
+            return False
+
+        for fragment2 in pattern.fragments:
+            if self.size < fragment2.size:
+                continue
+
+            for fragment1 in self.fragments:
                 if fragment1.contains(fragment2):
                     return True
         return False

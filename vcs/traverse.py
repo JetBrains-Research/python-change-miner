@@ -1,4 +1,3 @@
-import logging
 import os
 import tempfile
 import ast
@@ -6,42 +5,38 @@ import uuid
 import pickle
 import multiprocessing
 import time
+import subprocess
 
+from log import logger
 from pydriller import RepositoryMining
 from pydriller.domain.commit import ModificationType
 
 import settings
 import changegraph
-import vb_utils
 
 
 class GitAnalyzer:
+    STORAGE_DIR = settings.get('change_graphs_storage_dir')
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
-    STORE_INTERVAL = settings.get('store_interval')
-
-    def __init__(self):
-        self._pool = multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000)
+    STORE_INTERVAL = settings.get('store_interval', 300)
 
     def build_change_graphs(self):
-        for repo_name in os.listdir(self.GIT_REPOSITORIES_DIR):
-            if repo_name.startswith('_'):
-                logging.warning(f'Skipping repository with name={repo_name}')
-                continue
+        repo_names = [name for name in os.listdir(self.GIT_REPOSITORIES_DIR) if not name.startswith('_')]
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+            for repo_num, repo_name in enumerate(repo_names):
+                logger.warning(f'Looking at repo {repo_name} [{repo_num+1}/{len(repo_names)}]')
 
-            logging.warning(f'Looking at {repo_name}')
-            commits = self._extract_commits(repo_name)
+                commits = self._extract_commits(repo_name)
 
-            logging.warning(f'Pool started computations')
-            self._pool.map(self._get_commit_change_graphs, commits)
-            logging.warning('Pool stopped')
-
-        self._pool.close()
-        self._pool.join()
+                logger.info(f'Pool started computations')
+                pool.map(self._get_commit_change_graphs, commits)
+                logger.info('Pool stopped')
 
     def _extract_commits(self, repo_name):
         start = time.time()
 
         repo_path = os.path.join(self.GIT_REPOSITORIES_DIR, repo_name)
+        repo_url = self._get_repo_url(repo_path)
         repo = RepositoryMining(repo_path)
 
         commits = []
@@ -56,48 +51,60 @@ class GitAnalyzer:
                 'modifications': [],
                 'repo': {
                     'name': repo_name,
-                    'path': repo_path
+                    'path': repo_path,
+                    'url': repo_url
                 }
             }
 
             for mod in commit.modifications:
                 cut['modifications'].append({
                     'type': mod.change_type,
-                    'filename': mod.filename,
+
                     'old_src': mod.source_code_before,
-                    'new_src': mod.source_code
+                    'old_path': mod.old_path,
+
+                    'new_src': mod.source_code,
+                    'new_path': mod.new_path
                 })
 
             commits.append(cut)
 
-        vb_utils.time_log('Commits extracted', start)
+        logger.log(logger.WARNING, 'Commits extracted', start_time=start)
         return commits
+
+    @staticmethod
+    def _get_repo_url(repo_path):
+        args = ['git', 'config', '--get', 'remote.origin.url']
+        result = subprocess.run(args, stdout=subprocess.PIPE, cwd=repo_path).stdout.decode('utf-8')
+        return result.strip()
 
     @staticmethod
     def _store_change_graphs(graphs):
         filename = uuid.uuid4().hex
-        logging.warning(f'#{os.getpid()}: Storing graphs to {filename}')
+        logger.log(logger.INFO, f'Storing graphs to {filename}', show_pid=True)
 
-        with open(f'storage/{filename}.pickle', 'w+b') as f:
+        with open(os.path.join(GitAnalyzer.STORAGE_DIR, f'{filename}.pickle'), 'w+b') as f:
             pickle.dump(graphs, f)
 
-        logging.warning(f'#{os.getpid()}: Storing graphs to {filename} finished')
+        logger.log(logger.INFO, f'Storing graphs to {filename} finished', show_pid=True)
 
     @staticmethod
     def _get_commit_change_graphs(commit):
         change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
-        GitAnalyzer._mp_log(logging.WARNING, f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"')
+        logger.log(logger.INFO, f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)
 
         for mod in commit['modifications']:
             if mod['type'] != ModificationType.MODIFY:
                 continue
 
-            if not mod['filename'].endswith('.py'):
+            if not all([mod['old_path'].endswith('.py'), mod['new_path'].endswith('.py')]):
                 continue
 
             old_method_to_new = GitAnalyzer._get_methods_mapping(
-                GitAnalyzer._extract_methods(mod['old_src']), GitAnalyzer._extract_methods(mod['new_src']))
+                GitAnalyzer._extract_methods(mod['old_path'], mod['old_src']),
+                GitAnalyzer._extract_methods(mod['new_path'], mod['new_src'])
+            )
 
             for old_method, new_method in old_method_to_new.items():
                 old_method_src = old_method.get_source()
@@ -115,15 +122,24 @@ class GitAnalyzer:
                     t2.seek(0)
 
                     repo_info = RepoInfo(
-                        commit['repo']['name'], commit['repo']['path'], commit['hash'], old_method, new_method)
+                        commit['repo']['name'],
+                        commit['repo']['path'],
+                        commit['repo']['url'],
+                        commit['hash'],
+                        old_method,
+                        new_method
+                    )
 
                     try:
                         cg = changegraph.build_from_files(
                             os.path.realpath(t1.name), os.path.realpath(t2.name), repo_info=repo_info)
                     except:
-                        GitAnalyzer._mp_log(logging.ERROR,
-                                            f'Unable to build a change graph for repo={commit["repo"]["path"]}, '
-                                            f'commit=#{commit["hash"]}', exc_info=True)
+                        logger.log(logger.ERROR,
+                                   f'Unable to build a change graph for '
+                                   f'repo={commit["repo"]["path"]}, '
+                                   f'commit=#{commit["hash"]}, '
+                                   f'method={old_method.full_name}, '
+                                   f'line={old_method.ast.lineno}', exc_info=True, show_pid=True)
                         continue
 
                     change_graphs.append(cg)
@@ -136,31 +152,28 @@ class GitAnalyzer:
             GitAnalyzer._store_change_graphs(change_graphs)
 
     @staticmethod
-    def _extract_methods(src):
+    def _extract_methods(file_path, src):
         try:
             src_ast = ast.parse(src, mode='exec')
         except:
-            GitAnalyzer._mp_log(logging.ERROR, 'Unable to compile src and extract methods', exc_info=True)
+            logger.log(logger.INFO, 'Unable to compile src and extract methods', exc_info=True, show_pid=True)
             return []
 
-        return ASTMethodExtractor(src).visit(src_ast)
+        return ASTMethodExtractor(file_path, src).visit(src_ast)
 
     @staticmethod
     def _get_methods_mapping(old_methods, new_methods):
         old_method_to_new = {}
         for old_method in old_methods:
             for new_method in new_methods:
-                if old_method.path == new_method.path:
+                if old_method.full_name == new_method.full_name:
                     old_method_to_new[old_method] = new_method
         return old_method_to_new
 
-    @staticmethod
-    def _mp_log(lvl, text, exc_info=False):
-        logging.log(lvl, f'#{os.getpid()}: {text}', exc_info=exc_info)
-
 
 class ASTMethodExtractor(ast.NodeVisitor):
-    def __init__(self, src):
+    def __init__(self, path, src):
+        self.file_path = path
         self.src = src
 
     def visit_Module(self, node):
@@ -184,33 +197,35 @@ class ASTMethodExtractor(ast.NodeVisitor):
         return methods
 
     def visit_FunctionDef(self, node):
-        return [Method(node.name, node, self.src)]
+        return [Method(self.file_path, node.name, node, self.src)]
 
 
 class Method:
-    def __init__(self, name, ast, src):
-        self.name = name
+    def __init__(self, path, name, ast, src):
+        self.file_path = path
         self.ast = ast
-
         self.src = src.strip()
-        self.path = name
+
+        self.name = name
+        self.full_name = name
 
     def extend_path(self, prefix, separator='.'):
-        self.path = f'{prefix}{separator}{self.path}'
+        self.full_name = f'{prefix}{separator}{self.full_name}'
 
     # TODO:  last = lines[end_lineno].encode()[:end_col_offset].decode(), IndexError: list index out of range
     def get_source(self):
         try:
             return ast.get_source_segment(self.src, self.ast)
         except:
-            logging.exception(f'Unable to extract source segment from {self.ast}')
+            logger.info(f'Unable to extract source segment from {self.ast}', show_pid=True)
             return None
 
 
 class RepoInfo:
-    def __init__(self, repo_name, repo_path, commit_hash, old_method, new_method):
+    def __init__(self, repo_name, repo_path, repo_url, commit_hash, old_method, new_method):
         self.repo_name = repo_name
         self.repo_path = repo_path
+        self.repo_url = repo_url
 
         self.commit_hash = commit_hash
 
