@@ -28,7 +28,7 @@ class RunModes:
 def main():
     logger.info('------------------------------ Starting ------------------------------')
 
-    if settings.get('use_stackimpact', False):
+    if settings.get('use_stackimpact', required=False):
         _ = stackimpact.start(
             agent_key=settings.get('stackimpact_agent_key'),
             app_name='CodeChangesMiner',

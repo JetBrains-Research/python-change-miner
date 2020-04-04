@@ -16,9 +16,9 @@ import changegraph
 
 
 class GitAnalyzer:
-    STORAGE_DIR = settings.get('change_graphs_storage_dir')
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
-    STORE_INTERVAL = settings.get('store_interval', 300)
+    STORAGE_DIR = settings.get('change_graphs_storage_dir')
+    STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
 
     def build_change_graphs(self):
         repo_names = [name for name in os.listdir(self.GIT_REPOSITORIES_DIR) if not name.startswith('_')]
