@@ -7,8 +7,19 @@ class ChangeGraph:
         self.repo_info = repo_info
 
 
-class ChangeNode:
+class ChangeNode:  # todo: base class for pfg and cg
     _NODE_ID = 0
+
+    class Property:
+        SYNTAX_TOKEN_INTERVALS = Node.Property.SYNTAX_TOKEN_INTERVALS
+
+        ALL = [SYNTAX_TOKEN_INTERVALS]
+
+    def set_property(self, prop, value):
+        self._data[prop] = value
+
+    def get_property(self, prop, default=None):
+        return self._data.get(prop, default)
 
     class CommonLabel:
         VARIABLE = 'var'
@@ -20,7 +31,10 @@ class ChangeNode:
         CONTROL_NODE = 'control'
         UNKNOWN = 'unknown'
 
-    class SubKind:  # TODO: do i really need this?
+    class Version(Node.Version):
+        pass
+
+    class SubKind:
         DATA_VARIABLE_DECL = DataNode.Kind.VARIABLE_DECL
         DATA_VARIABLE_USAGE = DataNode.Kind.VARIABLE_USAGE
         DATA_LITERAL = DataNode.Kind.LITERAL
@@ -31,7 +45,7 @@ class ChangeNode:
         OP_COMPARE = OperationNode.Kind.COMPARE
         OP_RETURN = OperationNode.Kind.RETURN
 
-    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None, data=None):
+    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None):
         ChangeNode._NODE_ID += 1
         self.id = ChangeNode._NODE_ID
 
@@ -48,6 +62,8 @@ class ChangeNode:
         self.sub_kind = sub_kind
 
         self.version = version
+
+        self._data = {}
 
     @classmethod
     def create_from_fg_node(cls, fg_node):
@@ -70,7 +86,14 @@ class ChangeNode:
             kind = cls.Kind.UNKNOWN
 
         created = ChangeNode(fg_node.statement_num, fg_node.ast, label, kind, fg_node.version,
-                             sub_kind=getattr(fg_node, 'kind', None), data=fg_node.data)
+                             sub_kind=getattr(fg_node, 'kind', None))
+
+        for prop in cls.Property.ALL:
+            fg_node_prop = fg_node.get_property(prop)
+            if fg_node_prop is None:
+                continue
+            created.set_property(prop, fg_node_prop)
+
         return created
 
     def get_in_nodes(self):
@@ -99,6 +122,12 @@ class ChangeNode:
     def set_graph(self, graph):
         self.graph = graph
 
+    def __eq__(self, other):
+        return self.id == other.id
+
+    def __hash__(self):
+        return self.id
+
     def __repr__(self):
         return f'#{self.id} v{self.version} {self.label} {self.kind}.{self.sub_kind}'
 
@@ -115,3 +144,6 @@ class ChangeEdge:
 
         node_from.out_edges.add(created)
         node_to.in_edges.add(created)
+
+    def __repr__(self):
+        return f'#{self.node_from.id} -{self.label}> #{self.node_to.id}'

@@ -13,7 +13,7 @@ def _load():
 
 def get(setting_name, default=None, required=True):
     result = _settings.get(setting_name)
-    result = copy.copy(result) if result else default
+    result = copy.copy(result) if result is not None else default
 
     if required and result is None:
         raise SettingNotSet(f'Unable to read setting={setting_name}')

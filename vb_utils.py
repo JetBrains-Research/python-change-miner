@@ -6,15 +6,24 @@ def merge_dict(d1, d2):
 
 def deep_merge_dict(d1, d2):
     for k, v in d2.items():
-        if isinstance(d1.get(k), list) and isinstance(d2.get(k), list):
-            d1[k] += d2[k]
-        elif isinstance(d1.get(k), dict) and isinstance(d2.get(k), dict):
-            d1[k] = deep_merge_dict(d1[k], d2[k])
-        elif isinstance(d1.get(k), set) and isinstance(d2.get(k), set):
-            d1[k] = d1[k].union(d2[k])
-        else:
-            d1[k] = v
+        v1 = d1.get(k)
+        v2 = d2.get(k)
+
+        new_v = deep_merge(v1, v2)
+        d1[k] = new_v
     return d1
+
+
+def deep_merge(v1, v2):
+    if isinstance(v1, list) and isinstance(v2, list):
+        v1 += v2
+    elif isinstance(v1, dict) and isinstance(v2, dict):
+        v1 = deep_merge_dict(v1, v2)
+    elif isinstance(v1, set) and isinstance(v2, set):
+        v1 = v1.union(v2)
+    else:
+        return v2
+    return v1
 
 
 def filter_list(lst, condition, post_condition_fn=None):

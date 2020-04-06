@@ -80,7 +80,7 @@ def main():
                 for n, path in enumerate([old_path, new_path]):
                     with open(path, 'r+') as f:
                         src = f.read()
-                        methods.append(Method('mock file path', 'test_name', ast.parse(src, mode='exec').body[0], src))
+                        methods.append(Method(path, 'test_name', ast.parse(src, mode='exec').body[0], src))
 
                 repo_info = RepoInfo('mock repo path', 'mock repo name', 'mock repo url', 'mock hash',
                                      methods[0], methods[1])

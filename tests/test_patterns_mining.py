@@ -83,8 +83,7 @@ def test_fragment_label_to_ext_list():
     group = _get_freq_group(fr)
 
     p = Pattern(group, freq=None)
-
-    print(pattern.fragments)
+    print(p.fragments)
 
 
 def _get_freq_group(fr):

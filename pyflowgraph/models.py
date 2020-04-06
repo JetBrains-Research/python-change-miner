@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import copy
 import ast
+from typing import Set
 
 from log import logger
 
@@ -12,57 +13,43 @@ from external.gumtree import GumTree
 class Node:
     class Property:
         UNMAPPABLE = 'unmappable'
-        EXTRA_TOKENS = 'extra-tokens'
+        SYNTAX_TOKEN_INTERVALS = 'syntax-tokens'
+
+        DEF_FOR = 'def_for'
+        DEF_BY = 'def_by'
         # ORDER = 'order'  # todo
 
     def set_property(self, prop, value):
-        self.data[prop] = value
+        self._data[prop] = value
+
+    def update_property(self, prop, value):
+        self._data[prop] = vb_utils.deep_merge(self._data.get(prop), value)
 
     def get_property(self, prop, default=None):
-        return self.data.get(prop, default)
+        return self._data.get(prop, default)
 
     class Version:
         BEFORE_CHANGES = 0
         AFTER_CHANGES = 1
 
-    def __init__(self, label, ast, control, key=None, data=None, version=Version.BEFORE_CHANGES):
+    def __init__(self, label, ast, /, *, version=Version.BEFORE_CHANGES):
         global _statement_cnt
         self.statement_num = _statement_cnt
         _statement_cnt += 1
 
-        self.data = data or {}
-
         self.label = str(label)
         self.ast = ast
-        self.key = key
-        self.control = control
-        self.branch_kind = True
 
         self.mapped = None
 
-        self.in_edges = set()
+        self.in_edges = set()  # todo: make protected some fields
         self.out_edges = set()
 
         self.gt_node = None
         self.is_changed = False
         self.version = version
 
-    def deep_update_data(self, new_data):
-        self.data = vb_utils.deep_merge_dict(self.data or {}, new_data)
-
-    def is_statement(self):
-        return isinstance(self, ControlNode)
-
-    def change_control(self, new_control, new_branch_kind):
-        for e in copy.copy(self.in_edges):
-            if isinstance(e, ControlEdge) and e.node_from == self.control:
-                self.in_edges.remove(e)
-                break
-
-        self.control = new_control
-        self.branch_kind = new_branch_kind
-
-        new_control.create_control_edge(self, branch_kind=new_branch_kind)
+        self._data = {}
 
     def get_definitions(self):
         defs = []
@@ -76,23 +63,36 @@ class Node:
         self.out_edges.add(e)
         node_to.in_edges.add(e)
 
-    def create_control_edge(self, node_to, branch_kind=True):
-        e = ControlEdge(node_from=self, node_to=node_to, branch_kind=branch_kind)
-        self.out_edges.add(e)
-        node_to.in_edges.add(e)
-
     def has_in_edge(self, node_from, label):
         for e in self.in_edges:
             if e.node_from == node_from and e.label == label:
                 return True
         return False
 
-    def get_incoming_dep_nodes(self):
-        deps = []
+    def remove_in_edge(self, e):
+        self.in_edges.remove(e)
+        e.node_from.out_edges.remove(e)
+
+    def remove_out_edge(self, e):
+        self.out_edges.remove(e)
+        e.node_to.in_edges.remove(e)
+
+    def get_incoming_nodes(self, /, *, label=None):
+        result = set()
         for e in self.in_edges:
-            if e.label == LinkType.DEPENDENCE:
-                deps.append(e.node_from)
-        return deps
+            if not label or e.label == label:
+                result.add(e.node_from)
+        return result
+
+    def get_outgoing_nodes(self, /, *, label=None):
+        result = set()
+        for e in self.out_edges:
+            if not label or e.label == label:
+                result.add(e.node_to)
+        return result
+
+    def __repr__(self):
+        return f'#{self.statement_num}'
 
 
 class DataNode(Node):
@@ -102,16 +102,56 @@ class DataNode(Node):
         LITERAL = 'literal'
         UNDEFINED = 'undefined'
 
-    def __init__(self, label, ast, control, key=None, kind=None):
-        super().__init__(label, ast, control, key=key)
+    def __init__(self, label, ast, /, *, key=None, kind=None):
+        super().__init__(label, ast)
 
+        self.key = key
         self.kind = kind or self.Kind.UNDEFINED
 
     def __repr__(self):
         return f'#{self.statement_num} {self.label} <{self.kind}>'
 
 
-class OperationNode(Node):
+class StatementNode(Node):
+    def __init__(self, label, ast, control_branch_stack, /):
+        super().__init__(label, ast)
+
+        self.control_branch_stack = copy.copy(control_branch_stack)
+
+        if not isinstance(self, EntryNode):
+            control, branch_kind = control_branch_stack[-1]
+            if control:
+                control.create_control_edge(self, branch_kind)
+
+    @property
+    def control(self):
+        control, _ = self.control_branch_stack[-1]
+        return control
+
+    @property
+    def branch_kind(self):
+        _, branch_kind = self.control_branch_stack[-1]
+        return branch_kind
+
+    def create_control_edge(self, node_to, branch_kind, /):
+        e = ControlEdge(node_from=self, node_to=node_to, branch_kind=branch_kind)
+        self.out_edges.add(e)
+        node_to.in_edges.add(e)
+
+    def reset_controls(self):
+        for e in copy.copy(self.in_edges):
+            if isinstance(e, ControlEdge):
+                self.remove_in_edge(e)
+
+        self.control_branch_stack = []
+
+
+class EmptyNode(StatementNode):
+    def __init__(self, control_branch_stack, /):
+        super().__init__('empty', ast, control_branch_stack)
+
+
+class OperationNode(StatementNode):
     class Label:
         RETURN = 'return'
         CONTINUE = 'continue'
@@ -131,41 +171,38 @@ class OperationNode(Node):
         CONTINUE = 'continue'
         SUBSCRIPT_SLICE = 'subscript-slice'
         SUBSCRIPT_INDEX = 'subscript-index'
-        UNCLASSIFIED = 'undefined'
 
-    def __init__(self, label, ast, control, key=None, kind=None, branch_kind=None):
-        super().__init__(label, ast, control, key=key)
+        DUMMY = 'dummy'
+
+        UNCLASSIFIED = 'unclassified'
+
+    def __init__(self, label, ast, control_branch_stack, /, *, kind=None):
+        super().__init__(label, ast, control_branch_stack)
         self.kind = kind or self.Kind.UNCLASSIFIED
-        self.branch_kind = branch_kind
-
-        if self.control is not None:
-            self.control.create_control_edge(self, branch_kind=branch_kind)
 
     def __repr__(self):
-        return f'#{self.statement_num} {self.label} <{self.kind}> [branch={self.branch_kind}]'
+        return f'#{self.statement_num} {self.label} <{self.kind}>'
 
 
-class ControlNode(Node):
+class ControlNode(StatementNode):
     class Label:
         IF = 'if'
         FOR = 'for'
         TRY = 'try'
         EXCEPT = 'except'
-        FINALLY = 'finally'
 
-    def __init__(self, label, ast, control, branch_kind=None):
-        super().__init__(label, ast, control)
-        self.branch_kind = branch_kind
+        ALL = [IF, FOR, TRY, EXCEPT]
 
-        if self.control is not None:
-            self.control.create_control_edge(self, branch_kind=branch_kind)
+    def __init__(self, label, ast, control_branch_stack, /):
+        super().__init__(label, ast, control_branch_stack)
 
     def __repr__(self):
-        return f'#{self.statement_num} {self.label} [branch={self.branch_kind}]'
+        return f'#{self.statement_num} {self.label}'
 
 
 class EntryNode(ControlNode):
-    pass
+    def __init__(self, ast, /):
+        super().__init__('START', ast, [])
 
 
 class Edge:
@@ -176,7 +213,7 @@ class Edge:
 
 
 class ControlEdge(Edge):
-    def __init__(self, node_from, node_to, branch_kind=True):
+    def __init__(self, /, *, node_from, node_to, branch_kind=True):
         super().__init__('control', node_from, node_to)
         self.branch_kind = branch_kind
 
@@ -205,20 +242,21 @@ class LinkType:
 class ExtControlFlowGraph:
     def __init__(self, node=None):
         self.entry_node = None
-        self.nodes = set()
-        self.sinks = set()
+        self.nodes: Set[Node] = set()
+        self.op_nodes: Set[OperationNode] = set()
+
         self.var_key_to_def_nodes = {}  # key to set
         self.var_refs = set()
 
-        self.op_nodes = set()
-        self.statement_sinks = set()
-        self.statement_sources = set()
+        self.sinks: Set[Node] = set()
+        self.statement_sinks: Set[StatementNode] = set()
+        self.statement_sources: Set[StatementNode] = set()
 
         if node:
             self.nodes.add(node)
             self.sinks.add(node)
 
-            if node.control:
+            if isinstance(node, StatementNode):
                 self.statement_sinks.add(node)
                 self.statement_sources.add(node)
 
@@ -226,7 +264,6 @@ class ExtControlFlowGraph:
                 self.op_nodes.add(node)
 
         self.changed_nodes = set()
-
         self.gumtree = None
 
     def merge_graph(self, graph):
@@ -253,6 +290,10 @@ class ExtControlFlowGraph:
 
     def parallel_merge_graphs(self, graphs, op_link_type=None):
         old_sinks = copy.copy(self.sinks)
+        old_statement_sinks = copy.copy(self.statement_sinks)
+
+        self.sinks.clear()
+        self.statement_sinks.clear()
 
         for graph in graphs:
             unresolved_refs = copy.copy(graph.var_refs)  # because we remove from set
@@ -269,13 +310,17 @@ class ExtControlFlowGraph:
                         if not op_node.has_in_edge(sink, op_link_type):
                             sink.create_edge(op_node, op_link_type)
 
+            for sink in old_statement_sinks:
+                for source in graph.statement_sources:
+                    sink.create_edge(source, link_type=LinkType.DEPENDENCE)
+
             self.nodes = self.nodes.union(graph.nodes)
             self.op_nodes = self.op_nodes.union(graph.op_nodes)
             self.sinks = self.sinks.union(graph.sinks)
             self.var_refs = self.var_refs.union(graph.var_refs)
 
             self.statement_sinks = self.statement_sinks.union(graph.statement_sinks)
-            self.statement_sources = self.statement_sources.union(graph.statement_sources)
+            # self.statement_sources = self.statement_sources.union(graph.statement_sources)
 
             self._merge_def_nodes(graph)
 
@@ -286,23 +331,23 @@ class ExtControlFlowGraph:
         if link_type:
             for sink in self.sinks:
                 sink.create_edge(node, link_type)
-            self.sinks.clear()
 
-        if node.key:
+        if isinstance(node, DataNode) and node.key:
             if link_type == LinkType.DEFINITION:
                 def_nodes = self.var_key_to_def_nodes.setdefault(node.key, set())
                 for def_node in copy.copy(def_nodes):
-                    if def_node.key == node.key and def_node.control == node.control:
+                    if def_node.key == node.key:
                         def_nodes.remove(def_node)
                 def_nodes.add(node)
                 self.var_key_to_def_nodes[node.key] = def_nodes
             else:
                 self.var_refs.add(node)
 
+        self.sinks.clear()
         self.sinks.add(node)
         self.nodes.add(node)
 
-        if node.control:
+        if isinstance(node, StatementNode):
             for sink in self.statement_sinks:
                 sink.create_edge(node, link_type=LinkType.DEPENDENCE)
 
@@ -314,6 +359,22 @@ class ExtControlFlowGraph:
 
         if isinstance(node, OperationNode):
             self.op_nodes.add(node)
+
+    def remove_node(self, node):
+        for e in node.in_edges:
+            e.node_from.out_edges.remove(e)
+
+        for e in node.out_edges:
+            e.node_to.in_edges.remove(e)
+
+        node.in_edges.clear()
+        node.out_edges.clear()
+
+        self.nodes.remove(node)
+        self.op_nodes.discard(node)
+
+        self.sinks.discard(node)
+        self.statement_sinks.discard(node)
 
     def set_entry_node(self, entry_node):
         if self.entry_node:
@@ -420,9 +481,15 @@ class ExtControlFlowGraph:
                 for d in defs:
                     self.changed_nodes.add(d)
 
-    def find_by_ast(self, ast_node):
+    def find_node_by_ast(self, ast_node):
         for node in self.nodes:
             if node.ast == ast_node:
+                return node
+        return None
+
+    def find_node_by_label(self, label):
+        for node in self.nodes:
+            if node.label == label:
                 return node
         return None
 

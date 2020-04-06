@@ -11,7 +11,6 @@ import settings
 import changegraph
 from log import logger
 from changegraph.models import ChangeNode
-from pyflowgraph.models import Node
 from patterns.models import Fragment, Pattern
 
 
@@ -42,7 +41,7 @@ class Miner:
         label_to_node_pairs = {}
         for graph in graphs:
             for node in graph.nodes:
-                if node.version != Node.Version.BEFORE_CHANGES or not node.mapped:
+                if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
 
                 if node.kind != ChangeNode.Kind.OPERATION_NODE or node.sub_kind != ChangeNode.SubKind.OP_METHOD_CALL:
@@ -110,6 +109,9 @@ class Miner:
 
         with multiprocessing.pool.ThreadPool(processes=multiprocessing.cpu_count()) as thread_pool:
             for patterns in self._size_to_patterns.values():
+                if not patterns:
+                    continue
+
                 size = next(iter(patterns)).size
                 logger.log(logger.WARNING, f'Exporting patterns of size {size}', show_pid=True)
 
@@ -204,7 +206,7 @@ class Miner:
                  f'<div>Commit: <a target="_blank" href="{repo_url}/commit/{commit_hash}">#{commit_hash}</a></div>\n' \
                  f'<div>Link: ' \
                  f'<a target="_blank" href="' \
-                 f'{cls._get_base_line_url(repo_info, version=Node.Version.BEFORE_CHANGES)}{line_number}">' \
+                 f'{cls._get_base_line_url(repo_info, version=ChangeNode.Version.BEFORE_CHANGES)}{line_number}">' \
                  f'open [{line_number}]' \
                  f'</a>' \
                  f'</div>\n' \
@@ -216,7 +218,7 @@ class Miner:
         repo_url = repo_info.repo_url.strip('.git')
         commit_hash = repo_info.commit_hash
 
-        if version == Node.Version.BEFORE_CHANGES:
+        if version == ChangeNode.Version.BEFORE_CHANGES:
             method = repo_info.old_method
             postfix = 'L'
         else:
@@ -258,11 +260,11 @@ class Miner:
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \
                  f'<div id="before_code_block">\n' \
                  f'<div class="title">Before changes:</div>\n' \
-                 f'{cls._generate_pre_html(fragment, repo_info, old_src, Node.Version.BEFORE_CHANGES)}' \
+                 f'{cls._generate_pre_html(fragment, repo_info, old_src, ChangeNode.Version.BEFORE_CHANGES)}' \
                  f'</div>\n' \
                  f'<div id="after_code_block">\n' \
                  f'<div class="title">After changes:</div>\n' \
-                 f'{cls._generate_pre_html(fragment, repo_info, new_src, Node.Version.AFTER_CHANGES)}' \
+                 f'{cls._generate_pre_html(fragment, repo_info, new_src, ChangeNode.Version.AFTER_CHANGES)}' \
                  f'</div>\n' \
                  f'</div>\n' \
                  f'</body>\n' \
@@ -271,7 +273,7 @@ class Miner:
 
     @classmethod
     def _generate_pre_html(cls, fragment, repo_info, src, version):
-        method = repo_info.old_method if version == Node.Version.BEFORE_CHANGES else repo_info.new_method
+        method = repo_info.old_method if version == ChangeNode.Version.BEFORE_CHANGES else repo_info.new_method
 
         return f'<pre class="code" ' \
                f'data-base-line-url="{cls._get_base_line_url(repo_info, version)}" ' \
@@ -286,6 +288,14 @@ class Miner:
             if node.version != version:
                 continue
 
+            if getattr(node, '_data', None):  # TODO: remove later, added for backward comp
+                intervals = node.get_property(ChangeNode.Property.SYNTAX_TOKEN_INTERVALS, [])
+                if intervals:
+                    for interval in intervals:
+                        pattern_intervals.append(interval)
+                    continue
+
+            # todo: resolve if-else in other place?
             if node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
                 start = node.ast.func.first_token.startpos
                 end = node.ast.func.last_token.endpos
@@ -293,11 +303,6 @@ class Miner:
                 start = node.ast.first_token.startpos
                 end = node.ast.last_token.endpos
             pattern_intervals.append([start, end])
-
-            # if getattr(node, 'get_property', None):  # TODO: remove later, added for backward comp
-            #     extra_tokens = node.get_property(Node.Property.EXTRA_TOKENS, [])
-            #     for extra_token in extra_tokens:
-            #         pattern_intervals.append([extra_token['first_token'], extra_token['last_token']])
 
         pattern_intervals = cls._merge_intervals(pattern_intervals)
 

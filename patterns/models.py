@@ -317,14 +317,14 @@ class Fragment:
         return has_unmapped_change and has_old and has_new
 
     def contains(self, fragment):
-        if self.graph != fragment.graph or self.id_sum < fragment.id_sum or self.size < fragment.size:
+        if self.id_sum < fragment.id_sum or self.size < fragment.size or self.graph.nodes != fragment.graph.nodes:
             return False
 
         return set(fragment.nodes).issubset(set(self.nodes))
 
 
 class Pattern:
-    DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
+    DO_ASYNC_MINING = settings.get('patterns_async_mining')
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 1)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
 
