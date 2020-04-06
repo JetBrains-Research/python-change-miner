@@ -126,6 +126,7 @@ class GraphBuilder:
             return
 
         logger.debug(f'In node {node}')
+        node_controls = {control for (control, branch_kind) in node.control_branch_stack}
         for e in copy.copy(node.in_edges):
             in_node = e.node_from
             in_node_in_edges = copy.copy(in_node.in_edges)
@@ -152,7 +153,7 @@ class GraphBuilder:
                 else:
                     lowest_control = None  # will be found because the middle node = ControlNode
                     for control in in_node2.get_outgoing_nodes():
-                        if not isinstance(control, ControlNode):
+                        if not isinstance(control, ControlNode) or control not in node_controls:
                             continue
 
                         if lowest_control is None or control.statement_num < lowest_control.statement_num:
@@ -194,15 +195,6 @@ class GraphBuilder:
     def _adjust_controls(cls, node, processed_nodes):
         if not isinstance(node, StatementNode):
             return
-        if isinstance(node, EmptyNode):
-            out_deps = node.get_outgoing_nodes(label=LinkType.DEPENDENCE)
-            for out_dep in out_deps:
-                node.control.create_control_edge(out_dep, node.branch_kind)
-
-                # we do not consider the order, because it does not matter later
-                out_dep.control_branch_stack.append((node.control, node.branch_kind))
-            processed_nodes.add(node)
-            return
 
         in_deps = node.get_incoming_nodes(label=LinkType.DEPENDENCE)
         if not in_deps:
@@ -212,6 +204,10 @@ class GraphBuilder:
         control_branch_stacks = []
         control_to_kinds = {}
         for in_dep in in_deps:
+            if isinstance(in_dep, ControlNode):
+                processed_nodes.add(node)
+                return
+
             if in_dep not in processed_nodes:
                 cls._adjust_controls(in_dep, processed_nodes)
 
@@ -233,6 +229,7 @@ class GraphBuilder:
 
         if deepest_control:
             node.reset_controls()
+            node.control_branch_stack = copy.copy(deepest_control.control_branch_stack)
             node.control_branch_stack.append((deepest_control, branch_kind))
             deepest_control.create_control_edge(node, branch_kind)
         processed_nodes.add(node)

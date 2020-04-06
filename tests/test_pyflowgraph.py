@@ -118,7 +118,7 @@ def _test_if():
     p = _find_after_print(fg)
     # expected = T control start
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('START', True)
+    assert (control.label, branch_kind) == ('START', True)
 
 
 def _test_if_return():
@@ -132,7 +132,7 @@ def _test_if_return():
     p = _find_after_print(fg)
     # expected = F control if
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('if', False)
+    assert (control.label, branch_kind) == ('if', False)
 
 
 def _test_if_else():
@@ -147,7 +147,7 @@ def _test_if_else():
     p = _find_after_print(fg)
     # expected = T control start
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('START', True)
+    assert (control.label, branch_kind) == ('START', True)
 
 
 def _test_if_return_else():
@@ -163,7 +163,7 @@ def _test_if_return_else():
     p = _find_after_print(fg)
     # expected = F control if
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('if', False)
+    assert (control.label, branch_kind) == ('if', False)
 
 
 def _test_if_else_return():
@@ -179,7 +179,7 @@ def _test_if_else_return():
     p = _find_after_print(fg)
     # expected = T control if
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('if', True)
+    assert (control.label, branch_kind) == ('if', True)
 
 
 def _test_if_if_return():
@@ -194,7 +194,7 @@ def _test_if_if_return():
     p = _find_after_print(fg)
     # expected = F control if1, F control if2
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('if', False)
+    assert (control.label, branch_kind) == ('if', False)
 
 
 def _test_for():
@@ -207,7 +207,7 @@ def _test_for():
     """)
     p = _find_after_print(fg)
     control, branch_kind = p.control_branch_stack[-1]
-    assert len(p.control_branch_stack) == 1 and (control.label, branch_kind) == ('START', True)
+    assert (control.label, branch_kind) == ('START', True)
 
 
 def test_closure():
