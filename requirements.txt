@@ -6,6 +6,5 @@ pytest==5.3.5
 
 # dev dependencies
 stackimpact==1.2.7
-guppy3==3.0.9
 objgraph==3.4.1
 matplotlib==3.2.0
