@@ -4,8 +4,8 @@ from log import logger
 import pyflowgraph
 from changegraph.models import ChangeNode, ChangeGraph, ChangeEdge
 from pyflowgraph.models import ExtControlFlowGraph, Node
-from external.gumtree import GumTree
-from external import gumtree
+from changegraph.gumtree import GumTree
+from changegraph import gumtree
 
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching

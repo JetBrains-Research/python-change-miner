@@ -3,7 +3,7 @@ import tempfile
 import json
 
 import tests.utils as utils
-from external import gumtree
+from changegraph import gumtree
 
 
 def _try_build_gumtree_and_get_diff(src, dest):

@@ -7,7 +7,7 @@ from typing import Set
 from log import logger
 
 import vb_utils
-from external.gumtree import GumTree
+from changegraph.gumtree import GumTree
 
 
 class Node:
