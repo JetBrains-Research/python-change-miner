@@ -285,8 +285,8 @@ class ASTVisitorHelper:
                 sink_nums.append(sink.statement_num)
             var_node.set_property(Node.Property.DEF_BY, sink_nums)
 
-            val_fg.add_node(op_node, LinkType.PARAMETER)
-            val_fg.add_node(var_node, LinkType.DEFINITION)
+            val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
             return val_fg, [target]
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
             vars = []
@@ -356,7 +356,7 @@ class ASTVisitorHelper:
                 op_node = OperationNode('List', target, self.visitor.control_branch_stack,
                                         kind=OperationNode.Kind.COLLECTION)
 
-                starred_fg.add_node(op_node, LinkType.PARAMETER)
+                starred_fg.add_node(op_node, link_type=LinkType.PARAMETER)
                 prepared_arr.append(starred_fg)
 
                 for i, val in enumerate(values[starred_index + starred_val_cnt:]):
@@ -416,7 +416,7 @@ class ASTVisitor(ast.NodeVisitor):
 
         op_node = OperationNode(node.__class__.__name__, node, self.control_branch_stack,
                                 kind=OperationNode.Kind.COLLECTION)
-        fg.add_node(op_node, LinkType.PARAMETER)
+        fg.add_node(op_node, link_type=LinkType.PARAMETER)
         return fg
 
     def _visit_op(self, op_name, op, op_kind, params):
@@ -425,7 +425,7 @@ class ASTVisitor(ast.NodeVisitor):
         param_fgs = []
         for param in params:
             param_fg = self.visit(param)
-            param_fg.add_node(op_node, LinkType.PARAMETER)
+            param_fg.add_node(op_node, link_type=LinkType.PARAMETER)
             param_fgs.append(param_fg)
 
         g = ExtControlFlowGraph()
@@ -506,7 +506,7 @@ class ASTVisitor(ast.NodeVisitor):
         g = ExtControlFlowGraph()
         g.parallel_merge_graphs(fg_graphs)
         op_node = OperationNode('Dict', node, self.control_branch_stack, kind=OperationNode.Kind.COLLECTION)
-        g.add_node(op_node, LinkType.PARAMETER)
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
         return g
 
     # Visit atomic nodes
@@ -515,7 +515,7 @@ class ASTVisitor(ast.NodeVisitor):
         var_label = ast_utils.get_var_short_name(node)
 
         g = ExtControlFlowGraph()
-        g.add_node(node=DataNode(var_label, node, key=var_id, kind=DataNode.Kind.VARIABLE_USAGE))
+        g.add_node(DataNode(var_label, node, key=var_id, kind=DataNode.Kind.VARIABLE_USAGE))
         return g
 
     def visit_Name(self, node):
@@ -594,7 +594,7 @@ class ASTVisitor(ast.NodeVisitor):
         g = ExtControlFlowGraph()
         g.parallel_merge_graphs(arg_fgs)
         op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.METHOD_CALL)
-        g.add_node(op_node, LinkType.PARAMETER)
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
         return g
 
     def _visit_fn_arguments(self, node):
@@ -654,7 +654,7 @@ class ASTVisitor(ast.NodeVisitor):
         # todo: there is no else keyword tokens in parsed ast tokens
 
         fg = self.visit(node.test)
-        fg.add_node(control_node, LinkType.CONDITION)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
         fg1 = self._visit_control_node_body(control_node, node.body, True)
         fg2 = self._visit_control_node_body(control_node, node.orelse, False)
@@ -723,7 +723,7 @@ class ASTVisitor(ast.NodeVisitor):
             g.merge_graph(self.visit(ast.exc))
 
         op_node = OperationNode(label, ast, self.control_branch_stack, kind=kind)
-        g.add_node(op_node, LinkType.PARAMETER)
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
         g.statement_sinks.clear()
         return g
 
@@ -751,7 +751,7 @@ class ASTVisitor(ast.NodeVisitor):
         g.parallel_merge_graphs([self.visit(val) for val in node.values])
 
         op_node = OperationNode('fstr', node, self.control_branch_stack, kind=OperationNode.Kind.UNCLASSIFIED)
-        g.add_node(op_node, LinkType.PARAMETER)
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
 
         return g
 
@@ -763,8 +763,8 @@ class ASTVisitor(ast.NodeVisitor):
                                     kind=OperationNode.Kind.COMPARE)
             right_fg = self.visit(cmp)
 
-            last_fg.add_node(op_node, LinkType.PARAMETER)
-            right_fg.add_node(op_node, LinkType.PARAMETER)
+            last_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            right_fg.add_node(op_node, link_type=LinkType.PARAMETER)
 
             fgs = [last_fg, right_fg]
             g = ExtControlFlowGraph()

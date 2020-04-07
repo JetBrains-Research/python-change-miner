@@ -118,7 +118,7 @@ class StatementNode(Node):
 
         self.control_branch_stack = copy.copy(control_branch_stack)
 
-        if not isinstance(self, EntryNode):
+        if not isinstance(self, EntryNode) and control_branch_stack:
             control, branch_kind = control_branch_stack[-1]
             if control:
                 control.create_control_edge(self, branch_kind)
@@ -324,10 +324,10 @@ class ExtControlFlowGraph:
 
             self._merge_def_nodes(graph)
 
-    def _merge_def_nodes(self, graph):
+    def _merge_def_nodes(self, graph):  # todo: a=5, a=8, b=a makes 2 refs
         vb_utils.deep_merge_dict(self.var_key_to_def_nodes, graph.var_key_to_def_nodes)
 
-    def add_node(self, node: Node, link_type=None):
+    def add_node(self, node: Node, /, *, link_type=None):
         if link_type:
             for sink in self.sinks:
                 sink.create_edge(node, link_type)
@@ -343,7 +343,7 @@ class ExtControlFlowGraph:
             else:
                 self.var_refs.add(node)
 
-        self.sinks.clear()
+        # self.sinks.clear()
         self.sinks.add(node)
         self.nodes.add(node)
 
