@@ -7,14 +7,17 @@ import settings
 
 def parse(src_path):
     gumtree_bin_path = settings.get('gumtree_bin_path')
-    result = subprocess.run([gumtree_bin_path, 'parse', src_path], stdout=subprocess.PIPE).stdout.decode('utf-8')
-    return json.loads(result)
+    args = [gumtree_bin_path, 'parse', src_path]
+    p = subprocess.Popen(args, stdout=subprocess.PIPE)
+    result, _ = p.communicate()
+    return json.loads(result) if result else {}
 
 
 def diff(src1_path, src2_path):
     gumtree_bin_path = settings.get('gumtree_bin_path')
     args = [gumtree_bin_path, 'jsondiff', src1_path, src2_path]
-    result = subprocess.run(args, stdout=subprocess.PIPE).stdout.decode('utf-8')
+    p = subprocess.Popen(args, stdout=subprocess.PIPE)
+    result, _ = p.communicate()
     return json.loads(result) if result else {}
 
 

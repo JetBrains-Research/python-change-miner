@@ -5,6 +5,7 @@ import uuid
 import pickle
 import multiprocessing
 import time
+import json
 import subprocess
 
 from log import logger
@@ -20,17 +21,57 @@ class GitAnalyzer:
     STORAGE_DIR = settings.get('change_graphs_storage_dir')
     STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
 
+    def __init__(self):
+        self._data_file_dir = os.path.join(self.GIT_REPOSITORIES_DIR, '.data.json')
+        self._data = {
+            'in_progress': [],  # todo
+            'visited': []
+        }
+
+        self._load_data_file()
+
+    def _load_data_file(self):
+        with open(self._data_file_dir, 'a+') as f:
+            f.seek(0)
+            data = f.read()
+
+        if data:
+            try:
+                self._data = json.loads(data)
+            except:
+                logger.warning('Unable to load existing git repo data file')
+
+    def _save_data_file(self):
+        with open(self._data_file_dir, 'w+') as f:
+            json.dump(self._data, f)
+
     def build_change_graphs(self):
-        repo_names = [name for name in os.listdir(self.GIT_REPOSITORIES_DIR) if not name.startswith('_')]
+        repo_names = [
+            name for name in os.listdir(self.GIT_REPOSITORIES_DIR)
+            if not name.startswith('_') and not name.startswith('.') and name not in self._data['visited']]
+
+        if not repo_names:
+            logger.warning('No available repositories were found')
+            return
+
+        logger.warning(f'Found {len(repo_names)} repositories, starting a build process')
+
         with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
             for repo_num, repo_name in enumerate(repo_names):
                 logger.warning(f'Looking at repo {repo_name} [{repo_num+1}/{len(repo_names)}]')
 
+                self._data['visited'].append(repo_name)
+                self._save_data_file()
+
+                start = time.time()
                 commits = self._extract_commits(repo_name)
 
                 logger.info(f'Pool started computations')
                 pool.map(self._get_commit_change_graphs, commits)
                 logger.info('Pool stopped')
+
+                logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num+1}/{len(repo_names)}]',
+                               start_time=start)
 
     def _extract_commits(self, repo_name):
         start = time.time()

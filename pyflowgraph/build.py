@@ -169,7 +169,7 @@ class GraphBuilder:
                             break
                     branch_kind = in_lowest_e.branch_kind
 
-                in_node2.create_control_edge(node, branch_kind)
+                in_node2.create_control_edge(node, branch_kind, add_to_stack=False)
                 logger.debug(f'Created control edge from {in_node2} to {node} with kind = {branch_kind}'
                              f'From node={node}, in_node={in_node}, in_node2={in_node2}')
                 visited.add(in_node2)
@@ -230,7 +230,6 @@ class GraphBuilder:
         if deepest_control:
             node.reset_controls()
             node.control_branch_stack = copy.copy(deepest_control.control_branch_stack)
-            node.control_branch_stack.append((deepest_control, branch_kind))
             deepest_control.create_control_edge(node, branch_kind)
         processed_nodes.add(node)
 

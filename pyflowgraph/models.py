@@ -121,7 +121,7 @@ class StatementNode(Node):
         if not isinstance(self, EntryNode) and control_branch_stack:
             control, branch_kind = control_branch_stack[-1]
             if control:
-                control.create_control_edge(self, branch_kind)
+                control.create_control_edge(self, branch_kind, add_to_stack=False)
 
     @property
     def control(self):
@@ -133,10 +133,13 @@ class StatementNode(Node):
         _, branch_kind = self.control_branch_stack[-1]
         return branch_kind
 
-    def create_control_edge(self, node_to, branch_kind, /):
+    def create_control_edge(self, node_to, branch_kind, /, add_to_stack=True):
         e = ControlEdge(node_from=self, node_to=node_to, branch_kind=branch_kind)
         self.out_edges.add(e)
         node_to.in_edges.add(e)
+
+        if add_to_stack:
+            node_to.control_branch_stack.append((self, branch_kind))
 
     def reset_controls(self):
         for e in copy.copy(self.in_edges):

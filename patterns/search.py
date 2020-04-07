@@ -125,7 +125,7 @@ class Miner:
                     same_size_dir,
                     f'Size {same_size_dir} contents',
                     [{'name': f'Pattern #{p.id}', 'url': f'{p.id}/details.html'} for p in patterns],
-                    styles='../../styles.css')
+                    styles='../../styles.css', has_upper_contents=True)
 
             self._generate_contents(
                 self.OUTPUT_DIR,
@@ -133,10 +133,14 @@ class Miner:
                 [{'name': f'Size {size}', 'url': f'{size}/contents.html'} for size in self._size_to_patterns.keys()])
 
     @staticmethod
-    def _generate_contents(dir, title, items, styles='../styles.css'):
+    def _generate_contents(dir, title, items, styles='../styles.css', has_upper_contents=False):
         items_list = ''
         for item in items:
             items_list += f'<a class="item" href="{item["url"]}">{item["name"]}</a>\n'
+
+        before_items = ''
+        if has_upper_contents:
+            before_items = f'<a href="../contents.html">...</a><br><br>\n'
 
         markup = f'<html lang="en">\n' \
                  f'<head>\n' \
@@ -144,7 +148,7 @@ class Miner:
                  f'<link rel="stylesheet" href="{styles}">\n' \
                  f'</head>\n' \
                  f'<body>\n' \
-                 f'{items_list}' \
+                 f'{before_items}{items_list}' \
                  f'</body>\n' \
                  f'</html>'
 
@@ -173,7 +177,7 @@ class Miner:
     def _generate_html_details(cls, pattern):
         instances = []
         for fragment in pattern.fragments:
-            instances.append(cls._generate_html_instance(fragment))
+            instances.append(cls._generate_html_instance(fragment, is_repr=fragment == pattern.repr))
 
         instance_separator = '<br>\n\n'
         details = f'<html lang="en">\n' \
@@ -182,6 +186,7 @@ class Miner:
                   f'<link rel="stylesheet" href="../../../styles.css">\n' \
                   f'</head>\n' \
                   f'<body>\n' \
+                  f'<a href="../contents.html">...</a><br><br>\n' \
                   f'<div><a href="sample.html">Sample</a></div>\n' \
                   f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n' \
                   f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div>\n' \
@@ -193,7 +198,7 @@ class Miner:
         return details
 
     @classmethod
-    def _generate_html_instance(cls, fragment):
+    def _generate_html_instance(cls, fragment, is_repr=False):
         repo_info = fragment.graph.repo_info
         repo_name = repo_info.repo_name
         repo_url = repo_info.repo_url.strip('.git')
@@ -201,9 +206,11 @@ class Miner:
 
         line_number = repo_info.old_method.ast.lineno
 
-        result = f'<div class="pattern-instance">\n' \
+        result = f'<div class="pattern-instance{" pattern-repr" if is_repr else ""}">\n' \
                  f'<div>Repo: <a target="_blank" href="{repo_url}">{repo_name}</a></div>\n' \
                  f'<div>Commit: <a target="_blank" href="{repo_url}/commit/{commit_hash}">#{commit_hash}</a></div>\n' \
+                 f'<div>File: {repo_info.old_method.file_path} to {repo_info.new_method.file_path}</div>\n' \
+                 f'<div>Func: {repo_info.old_method.full_name} to {repo_info.new_method.full_name}</div>\n' \
                  f'<div>Link: ' \
                  f'<a target="_blank" href="' \
                  f'{cls._get_base_line_url(repo_info, version=ChangeNode.Version.BEFORE_CHANGES)}{line_number}">' \
