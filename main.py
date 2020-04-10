@@ -100,9 +100,14 @@ def main():
                 miner.mine_patterns(change_graphs)
             miner.print_patterns()
         else:
+            storage_dir = settings.get('change_graphs_storage_dir')
+            file_names = os.listdir(storage_dir)
+
+            logger.warning(f'Found {len(file_names)} files in storage directory')
+
             change_graphs = []
-            for filename in os.listdir('storage'):
-                file_path = os.path.join('storage', filename)
+            for file_name in file_names:
+                file_path = os.path.join(storage_dir, file_name)
                 try:
                     with open(file_path, 'rb') as f:
                         change_graphs += pickle.load(f)
