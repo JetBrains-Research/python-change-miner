@@ -2,6 +2,8 @@
   "gumtree_bin_path": str,
   "git_repositories_dir": str,
 
+  "traverse_file_max_line_count": 1500,
+
   "change_graphs_storage_dir": str,
   "change_graphs_store_interval": 300,
 

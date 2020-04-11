@@ -154,6 +154,11 @@ class GitAnalyzer:
                 if not all([old_method_src, new_method_src]) or old_method_src == new_method_src:
                     continue
 
+                line_count = max(old_method_src.count('\n'), new_method_src.count('\n'))
+                if line_count > settings.get('traverse_file_max_line_count'):
+                    logger.warning(f'Ignored files due to line limit: {mod["old_path"]} -> {mod["new_src"]}')
+                    continue
+
                 with tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t1, \
                         tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t2:
 

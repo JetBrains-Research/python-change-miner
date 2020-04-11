@@ -350,34 +350,12 @@ class Pattern:
                 d = label_to_fragment_to_ext_list.setdefault(label, {})
                 d[fragment] = exts
 
-        freq_group: Set[Fragment] = set()
-        freq: int = self.MIN_FREQUENCY - 1
-
         label_to_fragment_to_ext_list = {
             k: v for k, v in label_to_fragment_to_ext_list.items()
             if len(v) >= self.MIN_FREQUENCY
         }
 
-        if not self.DO_ASYNC_MINING:
-            for label_num, (label, fragment_to_ext_list) in enumerate(label_to_fragment_to_ext_list.items()):
-                curr_group, curr_freq = self._get_most_freq_group_and_freq_in_label(
-                    len(label_to_fragment_to_ext_list), (label_num, (label, fragment_to_ext_list)))
-
-                if curr_freq > freq:
-                    freq_group = curr_group
-                    freq = curr_freq
-        else:
-            with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
-                fn = functools.partial(self._get_most_freq_group_and_freq_in_label, len(label_to_fragment_to_ext_list))
-
-                for curr_group, curr_freq in pool.imap_unordered(
-                        fn, enumerate(label_to_fragment_to_ext_list.items()), chunksize=1):
-
-                    if curr_freq > freq:  # todo plus lattice, getting most frequent group one more time
-                        freq_group = curr_group
-                        freq = curr_freq
-
-        logger.log(logger.WARNING, f'The most freq group has freq={freq} and fr cnt={len(freq_group)}')
+        freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
         if freq >= Pattern.MIN_FREQUENCY:
             extended_pattern = Pattern(freq_group, freq)
@@ -396,6 +374,38 @@ class Pattern:
         elif self.is_change():
             logger.log(logger.WARNING, f'Done extend() for a pattern with success')
             return self
+
+    def _get_most_freq_group_and_freq(self, label_to_fragment_to_ext_list):
+        freq_group: Set[Fragment] = set()
+        freq: int = self.MIN_FREQUENCY - 1
+
+        has_result = False
+        if self.DO_ASYNC_MINING:
+            try:
+                with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+                    fn = functools.partial(self._get_most_freq_group_and_freq_in_label, len(label_to_fragment_to_ext_list))
+
+                    for curr_group, curr_freq in pool.imap_unordered(
+                            fn, enumerate(label_to_fragment_to_ext_list.items()), chunksize=1):
+
+                        if curr_freq > freq:  # todo plus lattice, getting most frequent group one more time
+                            freq_group = curr_group
+                            freq = curr_freq
+                has_result = True
+            except:
+                logger.error('Unable to process freq groups in the async mode', exc_info=True)
+
+        if not has_result:
+            for label_num, (label, fragment_to_ext_list) in enumerate(label_to_fragment_to_ext_list.items()):
+                curr_group, curr_freq = self._get_most_freq_group_and_freq_in_label(
+                    len(label_to_fragment_to_ext_list), (label_num, (label, fragment_to_ext_list)))
+
+                if curr_freq > freq:
+                    freq_group = curr_group
+                    freq = curr_freq
+
+        logger.log(logger.WARNING, f'The most freq group has freq={freq} and fr cnt={len(freq_group)}')
+        return freq_group, freq
 
     def _get_most_freq_group_and_freq_in_label(self, labels_cnt, data):
         label_index, (label, fragment_to_ext_list) = data

@@ -36,7 +36,7 @@ def main():
             app_version=str(datetime.datetime.now())
         )
 
-    sys.setrecursionlimit(10000)
+    sys.setrecursionlimit(2**31-1)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', help=f'One of {RunModes.ALL}', type=str)
@@ -106,13 +106,16 @@ def main():
             logger.warning(f'Found {len(file_names)} files in storage directory')
 
             change_graphs = []
-            for file_name in file_names:
+            for file_num, file_name in enumerate(file_names):
                 file_path = os.path.join(storage_dir, file_name)
                 try:
                     with open(file_path, 'rb') as f:
                         change_graphs += pickle.load(f)
                 except:
                     logger.warning(f'Incorrect file {file_path}')
+
+                if file_num % 1000 == 0:
+                    logger.warning(f'Loaded [{1+file_num}/{len(file_names)}] files')
             logger.warning('Pattern mining has started')
 
             miner = Miner()
