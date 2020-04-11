@@ -7,6 +7,7 @@ import multiprocessing
 import time
 import json
 import subprocess
+import gc
 
 from log import logger
 from pydriller import RepositoryMining
@@ -133,7 +134,7 @@ class GitAnalyzer:
     def _get_commit_change_graphs(commit):
         change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
-        logger.log(logger.INFO, f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)
+        logger.info(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)
 
         for mod in commit['modifications']:
             if mod['type'] != ModificationType.MODIFY:
@@ -156,7 +157,7 @@ class GitAnalyzer:
 
                 line_count = max(old_method_src.count('\n'), new_method_src.count('\n'))
                 if line_count > settings.get('traverse_file_max_line_count'):
-                    logger.warning(f'Ignored files due to line limit: {mod["old_path"]} -> {mod["new_src"]}')
+                    logger.info(f'Ignored files due to line limit: {mod["old_path"]} -> {mod["new_src"]}')
                     continue
 
                 with tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t1, \
@@ -196,6 +197,9 @@ class GitAnalyzer:
 
         if change_graphs:
             GitAnalyzer._store_change_graphs(change_graphs)
+            change_graphs.clear()
+
+        gc.collect()
 
     @staticmethod
     def _extract_methods(file_path, src):

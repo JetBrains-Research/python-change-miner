@@ -12,3 +12,5 @@ storage*/
 output/patterns*/
 research/data
 *.log
+*.png
+*.dot

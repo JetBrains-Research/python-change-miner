@@ -34,9 +34,6 @@ class BuildingContext:
 
 
 class GraphBuilder:
-    def __init__(self):
-        self.ast_visitor = None
-
     def build_from_source(self, source_code, show_dependencies=False, build_closure=True):
         models._statement_cnt = 0
 
@@ -48,8 +45,8 @@ class GraphBuilder:
         else:
             root_ast = tokenized_ast.tree
 
-        self.ast_visitor = ASTVisitor()
-        fg = self.ast_visitor.visit(root_ast)
+        ast_visitor = ASTVisitor()
+        fg = ast_visitor.visit(root_ast)
 
         if not show_dependencies:
             self.resolve_dependencies(fg)
