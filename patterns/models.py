@@ -341,8 +341,9 @@ class Pattern:
         return len(self.repr.nodes)
 
     def extend(self, iteration=1):
-        logger.log(logger.WARNING, f'Extending pattern with fragments cnt = {len(self.fragments)}')
+        logger.warning(f'Extending pattern with fragments cnt = {len(self.fragments)}')
 
+        start_time = time.time()
         label_to_fragment_to_ext_list = {}  # ext list = list of tuples, ext = tuple
         for fragment in self.fragments:
             label_to_ext_list = fragment.get_label_to_ext_list()
@@ -354,6 +355,7 @@ class Pattern:
             k: v for k, v in label_to_fragment_to_ext_list.items()
             if len(v) >= self.MIN_FREQUENCY
         }
+        logger.warning(f'Dict label_to_fragment_to_ext_list was constructed', start_time=start_time)
 
         freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
@@ -376,6 +378,9 @@ class Pattern:
             return self
 
     def _get_most_freq_group_and_freq(self, label_to_fragment_to_ext_list):
+        logger.warning(f'Processing label_to_fragment_to_ext_list to get the most freq group')
+        start_time = time.time()
+
         freq_group: Set[Fragment] = set()
         freq: int = self.MIN_FREQUENCY - 1
 
@@ -404,7 +409,7 @@ class Pattern:
                     freq_group = curr_group
                     freq = curr_freq
 
-        logger.log(logger.WARNING, f'The most freq group has freq={freq} and fr cnt={len(freq_group)}')
+        logger.warning(f'The most freq group has freq={freq} and fr cnt={len(freq_group)}', start_time=start_time)
         return freq_group, freq
 
     def _get_most_freq_group_and_freq_in_label(self, labels_cnt, data):
