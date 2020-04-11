@@ -10,8 +10,13 @@ from changegraph import gumtree
 
 class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
     def build_from_files(self, path1, path2, repo_info=None):
+        logger.warning(f'Change graph building...', show_pid=True)
         start_building = time.time()
-        logger.log(logger.WARNING, f'Change graph building...', show_pid=True)
+
+        start = time.time()
+        fg1 = pyflowgraph.build_from_file(path1)
+        fg2 = pyflowgraph.build_from_file(path2)
+        logger.warning('Flow graphs... OK', start_time=start, show_pid=True)
 
         start = time.time()
         gt1, gt2 = gumtree.build_from_file(path1), gumtree.build_from_file(path2)
@@ -21,11 +26,6 @@ class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
         for node in gt1.nodes:
             if node.mapped:
                 logger.info(f'Gumtree node {node} mapped to {node.mapped}', show_pid=True)
-
-        start = time.time()
-        fg1 = pyflowgraph.build_from_file(path1)
-        fg2 = pyflowgraph.build_from_file(path2)
-        logger.warning('Flow graphs... OK', start_time=start, show_pid=True)
 
         start = time.time()
         fg1.map_to_gumtree(gt1)
