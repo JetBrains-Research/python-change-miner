@@ -112,7 +112,10 @@ def main():
                 file_path = os.path.join(storage_dir, file_name)
                 try:
                     with open(file_path, 'rb') as f:
-                        change_graphs += pickle.load(f)
+                        graphs = pickle.load(f)
+
+                    for graph in graphs:
+                        change_graphs.append(pickle.loads(graph))
                 except:
                     logger.warning(f'Incorrect file {file_path}')
 

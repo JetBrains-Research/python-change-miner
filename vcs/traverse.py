@@ -7,7 +7,6 @@ import multiprocessing
 import time
 import json
 import subprocess
-import gc
 
 from log import logger
 from pydriller import RepositoryMining
@@ -67,9 +66,10 @@ class GitAnalyzer:
                 start = time.time()
                 commits = self._extract_commits(repo_name)
 
-                logger.info(f'Pool started computations')
-                pool.map(self._get_commit_change_graphs, commits)
-                logger.info('Pool stopped')
+                try:
+                    pool.map(self._get_commit_change_graphs, commits)
+                except:
+                    logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
 
                 logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num+1}/{len(repo_names)}]',
                                start_time=start)
@@ -122,13 +122,21 @@ class GitAnalyzer:
 
     @staticmethod
     def _store_change_graphs(graphs):
+        pickled_graphs = []
+        for graph in graphs:
+            try:
+                pickled = pickle.dumps(graph)
+                pickled_graphs.append(pickled)
+            except RecursionError:
+                logger.error(f'Unable to pickle graph, file_path={graph.repo_info.old_method.file_path}, '
+                             f'method={graph.repo_info.old_method.full_name}', exc_info=True)
+
         filename = uuid.uuid4().hex
-        logger.log(logger.INFO, f'Storing graphs to {filename}', show_pid=True)
-
+        logger.info(f'Trying to store graphs to {filename}', show_pid=True)
         with open(os.path.join(GitAnalyzer.STORAGE_DIR, f'{filename}.pickle'), 'w+b') as f:
-            pickle.dump(graphs, f)
+            pickle.dump(pickled_graphs, f)
+        logger.info(f'Storing graphs to {filename} finished', show_pid=True)
 
-        logger.log(logger.INFO, f'Storing graphs to {filename} finished', show_pid=True)
 
     @staticmethod
     def _get_commit_change_graphs(commit):
@@ -198,8 +206,6 @@ class GitAnalyzer:
         if change_graphs:
             GitAnalyzer._store_change_graphs(change_graphs)
             change_graphs.clear()
-
-        gc.collect()
 
     @staticmethod
     def _extract_methods(file_path, src):
