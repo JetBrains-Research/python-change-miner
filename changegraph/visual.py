@@ -1,8 +1,7 @@
 import graphviz as gv
 import os
 
-from pyflowgraph.models import Node
-from changegraph.models import ChangeGraph, ChangeNode
+from changegraph.models import Node, ChangeGraph, ChangeNode
 
 
 def _get_label_and_attrs(node):
@@ -21,6 +20,7 @@ def _get_label_and_attrs(node):
     else:
         attrs['color'] = 'green4'
 
+    label = f'{label} [{node.id}]'
     return label, attrs
 
 

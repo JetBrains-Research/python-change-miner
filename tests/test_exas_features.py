@@ -6,9 +6,9 @@ from pyflowgraph.models import LinkType
 
 def test_vector_hash():
     cg = ChangeGraph()
-    cn1 = ChangeNode(None, None, 'M1', ChangeNode.Kind.OPERATION_NODE, 0, sub_kind=ChangeNode.SubKind.OP_METHOD_CALL)
+    cn1 = ChangeNode(None, None, 'M1', ChangeNode.Kind.OPERATION_NODE, 0, sub_kind=ChangeNode.SubKind.OP_FUNC_CALL)
     cn2 = ChangeNode(None, None, '=', ChangeNode.Kind.OPERATION_NODE, 0, sub_kind=ChangeNode.SubKind.OP_ASSIGNMENT)
-    cn3 = ChangeNode(None, None, 'M2', ChangeNode.Kind.OPERATION_NODE, 1, sub_kind=ChangeNode.SubKind.OP_METHOD_CALL)
+    cn3 = ChangeNode(None, None, 'M2', ChangeNode.Kind.OPERATION_NODE, 1, sub_kind=ChangeNode.SubKind.OP_FUNC_CALL)
     cn4 = ChangeNode(None, None, '=', ChangeNode.Kind.OPERATION_NODE, 1, sub_kind=ChangeNode.SubKind.OP_ASSIGNMENT)
 
     ChangeEdge.create(LinkType.MAP, cn1, cn3)

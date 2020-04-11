@@ -383,8 +383,8 @@ class ASTVisitorHelper:
 
         g.parallel_merge_graphs(fgs)
 
-        for node in assigned_nodes:
-            self.visitor.context.add_variable(node)
+        for n in assigned_nodes:
+            self.visitor.context.add_variable(n)
 
         return g
 
@@ -462,7 +462,14 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         if not self.fg.entry_node:
             return self._visit_entry_node(node)
-        return None
+
+        fg = ExtControlFlowGraph()
+        data_node = DataNode(node.name, node, key=node.name, kind=DataNode.Kind.VARIABLE_DECL)
+        data_node.set_property(
+            Node.Property.SYNTAX_TOKEN_INTERVALS,
+            [[node.first_token.startpos, node.first_token.startpos+len(node.first_token.line.strip())]])
+        fg.add_node(data_node, link_type=LinkType.DEFINITION)
+        return fg
 
     def visit_Expr(self, node):
         return self.visit(node.value)
@@ -550,31 +557,15 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_Assign(self, node):
         return self.visitor_helper.visit_assign(node)
 
-    def _visit_simple_assign(self, target, val, is_op_unmappable=False):
-        prepared_value = self.visitor_helper.prepare_assign_values(target, val)
-        op_node = OperationNode(OperationNode.Label.ASSIGN, target, self.control_branch_stack,
-                                kind=OperationNode.Kind.ASSIGN)
-
-        if is_op_unmappable:
-            op_node.set_property(Node.Property.UNMAPPABLE, True)
-
-        fg, vars = self.visitor_helper.get_assign_graph_and_vars(op_node, target, prepared_value)
-        for var in vars:
-            self.context.add_variable(var)
-
-        return fg
-
-    def visit_AugAssign(self, node):  # TODO: incorrect
+    def visit_AugAssign(self, node):
         if isinstance(node.target, ast.Name):
-            fg, _ = self.visitor_helper.get_assign_graph_and_vars(
-                node, node.target, self._visit_bin_op(node.op, node.target, node.value))
-            self.context.add_variable(node.target)
-            return fg
+            val_fg = self._visit_bin_op(node.op, node.target, node.value)
+            return self._visit_simple_assign(node.target, val_fg)
         else:
             raise GraphBuildingException
 
     def visit_AnnAssign(self, node):  # TODO: incorrect
-        return GraphBuildingException
+        return ExtControlFlowGraph()
 
         if not node.value:
             return ExtControlFlowGraph()
@@ -587,12 +578,30 @@ class ASTVisitor(ast.NodeVisitor):
 
         return fg
 
-    def _visit_method_call(self, node, name):
+    def _visit_simple_assign(self, target, val, is_op_unmappable=False):
+        if not isinstance(val, ExtControlFlowGraph):
+            prepared_value = self.visitor_helper.prepare_assign_values(target, val)
+        else:
+            prepared_value = val
+
+        op_node = OperationNode(OperationNode.Label.ASSIGN, target, self.control_branch_stack,
+                                kind=OperationNode.Kind.ASSIGN)
+
+        if is_op_unmappable:
+            op_node.set_property(Node.Property.UNMAPPABLE, True)
+
+        fg, vars = self.visitor_helper.get_assign_graph_and_vars(op_node, target, prepared_value)
+        for var in vars:
+            self.context.add_variable(var)
+
+        return fg
+
+    def _visit_func_call(self, node, name):
         arg_fgs = self._visit_fn_arguments(node)
 
         g = ExtControlFlowGraph()
         g.parallel_merge_graphs(arg_fgs)
-        op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.METHOD_CALL)
+        op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
         return g
 
@@ -604,7 +613,11 @@ class ASTVisitor(ast.NodeVisitor):
 
         for keyword in node.keywords:  # named args
             fg = self.visit(keyword.value)
-            fg.add_node(DataNode(keyword.arg, keyword, kind=DataNode.Kind.LITERAL))
+            if keyword.arg:
+                arg_node = DataNode(keyword.arg, keyword, kind=DataNode.Kind.LITERAL)
+                arg_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                      [[keyword.first_token.startpos, keyword.first_token.endpos]])
+                fg.add_node(arg_node)
             arg_fgs.append(fg)
 
         if not all(arg_fgs):
@@ -640,9 +653,9 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name):
-            return self._visit_method_call(node, node.func.id)
+            return self._visit_func_call(node, node.func.id)
         elif isinstance(node.func, ast.Attribute):
-            return self._visit_method_call(node, node.func.attr)
+            return self._visit_func_call(node, node.func.attr)
         else:
             raise ValueError
 

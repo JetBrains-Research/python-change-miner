@@ -165,7 +165,7 @@ class OperationNode(StatementNode):
 
     class Kind:
         COLLECTION = 'collection'
-        METHOD_CALL = 'method-call'
+        FUNC_CALL = 'func-call'
         ASSIGN = 'assignment'
         COMPARE = 'comparision'
         RETURN = 'return'
@@ -213,6 +213,9 @@ class Edge:
         self.label = label
         self.node_from = node_from
         self.node_to = node_to
+
+    def __repr__(self):
+        return f'{self.node_from} ={self.label}> {self.node_to}'
 
 
 class ControlEdge(Edge):
@@ -418,6 +421,9 @@ class ExtControlFlowGraph:
                 elif isinstance(node.ast, ast.arg):
                     if node.kind == DataNode.Kind.VARIABLE_DECL:
                         type_label = GumTree.TypeLabel.SIMPLE_ARG
+                elif isinstance(node.ast, ast.FunctionDef):
+                    if node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.FUNC_DEF
                 else:
                     if node.kind == DataNode.Kind.VARIABLE_USAGE:
                         type_label = GumTree.TypeLabel.NAME_LOAD
@@ -426,8 +432,8 @@ class ExtControlFlowGraph:
             elif isinstance(node, OperationNode):
                 if node.kind == OperationNode.Kind.ASSIGN:
                     type_label = GumTree.TypeLabel.ASSIGN
-                elif node.kind == OperationNode.Kind.METHOD_CALL:
-                    type_label = GumTree.TypeLabel.METHOD_CALL
+                elif node.kind == OperationNode.Kind.FUNC_CALL:
+                    type_label = GumTree.TypeLabel.FUNC_CALL
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
@@ -467,6 +473,20 @@ class ExtControlFlowGraph:
 
             fg_src_node.create_edge(fg_dest_node, LinkType.MAP)
 
+    @staticmethod
+    def _get_node_dependencies(node):
+        result = node.get_definitions()
+
+        if isinstance(node, OperationNode):
+            for in_node in node.get_incoming_nodes(label=LinkType.PARAMETER):
+                if not isinstance(in_node, DataNode):
+                    continue
+
+                result += in_node.get_definitions()
+                result.append(in_node)
+
+        return set(result)
+
     def calc_changed_nodes_by_gumtree(self):
         self.changed_nodes.clear()
 
@@ -480,15 +500,8 @@ class ExtControlFlowGraph:
             if node.gt_node.is_changed():
                 self.changed_nodes.add(node)
 
-                defs = node.get_definitions()
-                for d in defs:
-                    self.changed_nodes.add(d)
-
-    def find_node_by_ast(self, ast_node):
-        for node in self.nodes:
-            if node.ast == ast_node:
-                return node
-        return None
+                deps = self._get_node_dependencies(node)
+                self.changed_nodes = self.changed_nodes.union(deps)
 
     def find_node_by_label(self, label):
         for node in self.nodes:

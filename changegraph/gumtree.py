@@ -41,7 +41,8 @@ class GumTree:
     class TypeLabel:
         NAME_STORE = 'NameStore'
         NAME_LOAD = 'NameLoad'
-        METHOD_CALL = 'Call'
+        FUNC_CALL = 'Call'
+        FUNC_DEF = 'FunctionDef'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
         ATTRIBUTE_STORE = 'AttributeStore'
@@ -188,7 +189,7 @@ class GumTree:
             else:
                 is_changed = not len(node.mapped.children)
                 if not is_changed:
-                    if node.type_label == GumTree.TypeLabel.METHOD_CALL:
+                    if node.type_label == GumTree.TypeLabel.FUNC_CALL:
                         attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
                         if attr_load:
                             is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)

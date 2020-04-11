@@ -1,4 +1,5 @@
-import pyflowgraph
+import changegraph
+import pyflowgraph  # todo: resolve circular import problems
 from tests import utils
 
 

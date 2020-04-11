@@ -154,14 +154,14 @@ class Fragment:
                 else:
                     defs = node.get_definitions()
                     if not defs:
-                        refs, non_refs = node.get_out_nodes(separation_label=LinkType.REFERENCE)  # todo refs not used
-                        if non_refs.intersection(set(self.nodes)):  # todo: review
+                        _, non_refs = node.get_out_node_groups(LinkType.REFERENCE)
+                        if non_refs.intersection(set(self.nodes)):
                             self._add_extension(label_to_extensions, node)
                         else:
                             for next_node in non_refs:
                                 self._add_extension_chain(label_to_extensions, node, next_node)
             elif node.kind == ChangeNode.Kind.OPERATION_NODE:
-                if node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
+                if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                     self._add_extension(label_to_extensions, node)
                 else:
                     self._magic_extension_processor(label_to_extensions, node)
@@ -218,7 +218,7 @@ class Fragment:
             if found:
                 found = False
                 for n in out_nodes:
-                    if n.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL and n in self.nodes:
+                    if n.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL and n in self.nodes:
                         found = True
                         break
 
@@ -226,7 +226,7 @@ class Fragment:
                     self._add_extension(label_to_exts, node)
                 else:
                     for next_node in out_nodes:
-                        if next_node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
+                        if next_node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                             self._add_extension_chain(label_to_exts, node, next_node)
             else:
                 for next_node in in_nodes:
@@ -290,7 +290,7 @@ class Fragment:
     def overlap(self, fragment):
         intersection = set(self.nodes).intersection(set(fragment.nodes))  # todo: performance analysis
         for node in intersection:
-            if node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
+            if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                 return True
         return False
 

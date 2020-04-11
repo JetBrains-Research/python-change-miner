@@ -40,7 +40,7 @@ class ChangeNode:  # todo: base class for pfg and cg
         DATA_LITERAL = DataNode.Kind.LITERAL
 
         OP_COLLECTION = OperationNode.Kind.COLLECTION
-        OP_METHOD_CALL = OperationNode.Kind.METHOD_CALL
+        OP_FUNC_CALL = OperationNode.Kind.FUNC_CALL
         OP_ASSIGNMENT = OperationNode.Kind.ASSIGN
         OP_COMPARE = OperationNode.Kind.COMPARE
         OP_RETURN = OperationNode.Kind.RETURN
@@ -96,21 +96,21 @@ class ChangeNode:  # todo: base class for pfg and cg
 
         return created
 
-    def get_in_nodes(self):
-        result = set()
-        for e in self.in_edges:
-            result.add(e.node_from)
-        return result
+    def get_in_nodes(self, label=None):
+        return {e.node_from for e in self.in_edges if not label or e.label == label}
 
-    def get_out_nodes(self, separation_label=None):
+    def get_out_nodes(self, label=None):
+        return {e.node_to for e in self.out_edges if not label or e.label == label}
+
+    def get_out_node_groups(self, grouping_label):
         group1 = set()
         group2 = set()
         for e in self.out_edges:
-            if not separation_label or e.label == separation_label:
+            if e.label == grouping_label:
                 group1.add(e.node_to)
             else:
                 group2.add(e.node_to)
-        return group1 if not separation_label else (group1, group2)
+        return group1, group2
 
     def get_definitions(self):
         defs = []

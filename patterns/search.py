@@ -44,7 +44,7 @@ class Miner:
                 if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
 
-                if node.kind != ChangeNode.Kind.OPERATION_NODE or node.sub_kind != ChangeNode.SubKind.OP_METHOD_CALL:
+                if node.kind != ChangeNode.Kind.OPERATION_NODE or node.sub_kind != ChangeNode.SubKind.OP_FUNC_CALL:
                     continue
 
                 label = f'{node.label}~{node.mapped.label}'
@@ -123,7 +123,7 @@ class Miner:
 
                 self._generate_contents(
                     same_size_dir,
-                    f'Size {same_size_dir} contents',
+                    f'Size {size} contents',
                     [{'name': f'Pattern #{p.id}', 'url': f'{p.id}/details.html'} for p in patterns],
                     styles='../../styles.css', has_upper_contents=True)
 
@@ -131,6 +131,8 @@ class Miner:
                 self.OUTPUT_DIR,
                 'Contents',
                 [{'name': f'Size {size}', 'url': f'{size}/contents.html'} for size in self._size_to_patterns.keys()])
+
+        logger.warning('Done patterns output')
 
     @staticmethod
     def _generate_contents(dir, title, items, styles='../styles.css', has_upper_contents=False):
@@ -290,20 +292,30 @@ class Miner:
 
     @classmethod
     def _get_markup(cls, fragment, src, version):
+        printable_nodes = set()
+        for node in fragment.graph.nodes:
+            in_nodes = node.get_in_nodes()
+            for in_node in in_nodes:
+                defs = in_node.get_definitions()
+                for def_node in defs:
+                    if def_node in fragment.nodes:
+                        printable_nodes.add(in_node)
+                        break
+        printable_nodes = printable_nodes.union(fragment.nodes)
+
         pattern_intervals = []
-        for node in fragment.nodes:
+        for node in printable_nodes:
             if node.version != version:
                 continue
 
-            if getattr(node, '_data', None):  # TODO: remove later, added for backward comp
-                intervals = node.get_property(ChangeNode.Property.SYNTAX_TOKEN_INTERVALS, [])
-                if intervals:
-                    for interval in intervals:
-                        pattern_intervals.append(interval)
-                    continue
+            intervals = node.get_property(ChangeNode.Property.SYNTAX_TOKEN_INTERVALS, [])
+            if intervals:
+                for interval in intervals:
+                    pattern_intervals.append(interval)
+                continue
 
             # todo: resolve if-else in other place?
-            if node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_METHOD_CALL:
+            if node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                 start = node.ast.func.first_token.startpos
                 end = node.ast.func.last_token.endpos
             else:
