@@ -5,6 +5,7 @@ import sys
 import stackimpact
 import datetime
 import argparse
+import multiprocessing
 
 from log import logger
 from patterns import Miner
@@ -37,6 +38,7 @@ def main():
         )
 
     sys.setrecursionlimit(2**31-1)
+    multiprocessing.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser()
     parser.add_argument('mode', help=f'One of {RunModes.ALL}', type=str)
