@@ -500,6 +500,9 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_Pass(self, node):
         return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
 
+    def visit_Lambda(self, node):
+        return self.create_graph(node=DataNode(OperationNode.Label.LAMBDA, node))
+
     # Visit collections
     def visit_List(self, node):
         return self._visit_collection(node)
@@ -621,7 +624,7 @@ class ASTVisitor(ast.NodeVisitor):
 
         g = self.create_graph()
         g.parallel_merge_graphs(arg_fgs)
-        op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL)
+        op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL, key=name)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
         return g
 
@@ -634,7 +637,7 @@ class ASTVisitor(ast.NodeVisitor):
         for keyword in node.keywords:  # named args
             fg = self.visit(keyword.value)
             if keyword.arg:
-                arg_node = DataNode(keyword.arg, keyword, kind=DataNode.Kind.LITERAL)
+                arg_node = DataNode(keyword.arg, keyword, kind=DataNode.Kind.KEYWORD)
                 arg_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
                                       [[keyword.first_token.startpos, keyword.first_token.endpos]])
                 fg.add_node(arg_node)

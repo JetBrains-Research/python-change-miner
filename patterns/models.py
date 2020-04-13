@@ -48,8 +48,12 @@ class Fragment:
     Read more: "Accurate and Efficient Structural Characteristic Feature Extraction"
     """
     LABEL_SEPARATOR = '-'
+    _FRAGMENT_ID = 0
 
     def __init__(self):
+        Fragment._FRAGMENT_ID += 1
+        self.id = Fragment._FRAGMENT_ID
+
         self.id_sum = 0  # boosting fragment comparision todo: int overflow?
 
         self.parent = None
@@ -146,7 +150,7 @@ class Fragment:
                 if out_node not in self.nodes:
                     adjacent_nodes.append(out_node)
 
-        label_to_extensions: Dict[Set[Tuple]] = {}  # str to list of tuples
+        label_to_extensions: Dict[str, Set[Tuple]] = {}
         for node in adjacent_nodes:
             if node.kind == ChangeNode.Kind.DATA_NODE:
                 if node.sub_kind == ChangeNode.SubKind.DATA_LITERAL:
@@ -344,9 +348,9 @@ class Pattern:
         logger.warning(f'Extending pattern with fragments cnt = {len(self.fragments)}')
 
         start_time = time.time()
-        label_to_fragment_to_ext_list = {}  # ext list = list of tuples, ext = tuple
+        label_to_fragment_to_ext_list: Dict[str, Dict[Fragment, Set[Tuple[Fragment]]]] = {}
         for fragment in self.fragments:
-            label_to_ext_list = fragment.get_label_to_ext_list()
+            label_to_ext_list: Dict[str, Set[Tuple]] = fragment.get_label_to_ext_list()
             for label, exts in label_to_ext_list.items():
                 d = label_to_fragment_to_ext_list.setdefault(label, {})
                 d[fragment] = exts

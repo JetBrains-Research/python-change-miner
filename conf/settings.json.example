@@ -11,6 +11,7 @@
   "patterns_min_frequency": 5,
   "patterns_max_frequency": 1000,
   "patterns_async_mining": true,
+  "patterns_full_print": false,
 
   "logger_file_path": "miner.log",
   "logger_file_log_level": "INFO",

@@ -24,6 +24,7 @@ class ChangeNode:  # todo: base class for pfg and cg
     class CommonLabel:
         VARIABLE = 'var'
         LITERAL = 'lit'
+        KEYWORD = 'keyword'
 
     class Kind:
         DATA_NODE = 'data'
@@ -38,6 +39,7 @@ class ChangeNode:  # todo: base class for pfg and cg
         DATA_VARIABLE_DECL = DataNode.Kind.VARIABLE_DECL
         DATA_VARIABLE_USAGE = DataNode.Kind.VARIABLE_USAGE
         DATA_LITERAL = DataNode.Kind.LITERAL
+        DATA_KEYWORD = DataNode.Kind.KEYWORD
 
         OP_COLLECTION = OperationNode.Kind.COLLECTION
         OP_FUNC_CALL = OperationNode.Kind.FUNC_CALL
@@ -45,7 +47,7 @@ class ChangeNode:  # todo: base class for pfg and cg
         OP_COMPARE = OperationNode.Kind.COMPARE
         OP_RETURN = OperationNode.Kind.RETURN
 
-    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None):
+    def __init__(self, statement_num, ast, label, kind, version, sub_kind=None, original_label=None):
         ChangeNode._NODE_ID += 1
         self.id = ChangeNode._NODE_ID
 
@@ -53,6 +55,8 @@ class ChangeNode:  # todo: base class for pfg and cg
         self.ast = ast
 
         self.label = label
+        self.original_label = original_label
+
         self.in_edges = set()
         self.out_edges = set()
         self.mapped = None
@@ -73,10 +77,11 @@ class ChangeNode:  # todo: base class for pfg and cg
             sub_kind = fg_node.kind
 
             if sub_kind in [cls.SubKind.DATA_VARIABLE_DECL, cls.SubKind.DATA_VARIABLE_USAGE]:
-                # label = cls.CommonLabel.VARIABLE
-                label = fg_node.label
-            elif sub_kind in [cls.SubKind.DATA_LITERAL]:
+                label = cls.CommonLabel.VARIABLE
+            elif sub_kind == cls.SubKind.DATA_LITERAL:
                 label = cls.CommonLabel.LITERAL
+            elif sub_kind == cls.SubKind.DATA_KEYWORD:
+                label = cls.CommonLabel.KEYWORD
 
         elif isinstance(fg_node, OperationNode):
             kind = cls.Kind.OPERATION_NODE
@@ -86,7 +91,7 @@ class ChangeNode:  # todo: base class for pfg and cg
             kind = cls.Kind.UNKNOWN
 
         created = ChangeNode(fg_node.statement_num, fg_node.ast, label, kind, fg_node.version,
-                             sub_kind=getattr(fg_node, 'kind', None))
+                             sub_kind=getattr(fg_node, 'kind', None), original_label=fg_node.label)
 
         for prop in cls.Property.ALL:
             fg_node_prop = fg_node.get_property(prop)
@@ -129,7 +134,7 @@ class ChangeNode:  # todo: base class for pfg and cg
         return self.id
 
     def __repr__(self):
-        return f'#{self.id} v{self.version} {self.label} {self.kind}.{self.sub_kind}'
+        return f'#{self.id} v{self.version} {self.label} ({self.original_label}) {self.kind}.{self.sub_kind}'
 
 
 class ChangeEdge:

@@ -16,6 +16,7 @@ from patterns.models import Fragment, Pattern
 
 class Miner:
     OUTPUT_DIR = settings.get('patterns_output_dir')
+    FULL_PRINT = settings.get('patterns_full_print', False)
 
     def __init__(self):
         self._size_to_patterns = {}
@@ -157,21 +158,26 @@ class Miner:
         with open(os.path.join(dir, 'contents.html'), 'w+') as f:
             f.write(markup)
 
-    def _print_pattern(self, root_dir, pattern):
+    @classmethod
+    def _print_pattern(cls, root_dir, pattern):
         logger.warning(f'Printing pattern #{pattern.id}', show_pid=True)
 
         pattern_id_dir = os.path.join(root_dir, str(pattern.id))
         os.makedirs(pattern_id_dir, exist_ok=True)
 
-        changegraph.export_graph_image(pattern.repr.graph, path=os.path.join(pattern_id_dir, 'graph.dot'))
-        changegraph.print_out_nodes(pattern.repr.nodes, path=os.path.join(pattern_id_dir, 'fragment.dot'))
+        printable_fragments = pattern.fragments if cls.FULL_PRINT else [pattern.repr]
 
-        sample = self._generate_html_sample(pattern.id, pattern.repr)
-        if sample:
-            with open(os.path.join(pattern_id_dir, 'sample.html'), 'w+') as f:
-                f.write(sample)
+        for fragment in printable_fragments:
+            file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
+            changegraph.print_out_nodes(fragment.nodes, path=os.path.join(pattern_id_dir, f'fragment{file_suffix}.dot'))
+            changegraph.export_graph_image(fragment.graph, path=os.path.join(pattern_id_dir, f'graph.dot'))
 
-        details = self._generate_html_details(pattern)
+            sample = cls._generate_html_sample(f'{pattern.id}{file_suffix}', fragment)
+            if sample:
+                with open(os.path.join(pattern_id_dir, f'sample{file_suffix}.html'), 'w+') as f:
+                    f.write(sample)
+
+        details = cls._generate_html_details(pattern)
         with open(os.path.join(pattern_id_dir, 'details.html'), 'w+') as f:
             f.write(details)
 
@@ -181,6 +187,11 @@ class Miner:
         for fragment in pattern.fragments:
             instances.append(cls._generate_html_instance(fragment, is_repr=fragment == pattern.repr))
 
+        inner = f''
+        if not cls.FULL_PRINT:
+            inner += f'<div><a href="sample.html">Sample</a></div>\n' \
+                     f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n'
+
         instance_separator = '<br>\n\n'
         details = f'<html lang="en">\n' \
                   f'<head>\n' \
@@ -189,10 +200,9 @@ class Miner:
                   f'</head>\n' \
                   f'<body>\n' \
                   f'<a href="../contents.html">...</a><br><br>\n' \
-                  f'<div><a href="sample.html">Sample</a></div>\n' \
-                  f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n' \
                   f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div>\n' \
-                  f'<br><div>Frequency: {pattern.freq}</div>\n' \
+                  f'<div>Frequency: {pattern.freq}</div><br>\n' \
+                  f'{inner}<br>\n' \
                   f'<h2>Instances:</h2>\n' \
                   f'{instance_separator.join(instances)}' \
                   f'</body>\n' \
@@ -208,6 +218,13 @@ class Miner:
 
         line_number = repo_info.old_method.ast.lineno
 
+        optional_links = ''
+        if cls.FULL_PRINT:
+            suffix = f'-{fragment.id}'
+            optional_links = f'<div><a href="sample{suffix}.html">Sample{suffix}</a></div>\n' \
+                             f'<div><a target="_blank" href="fragment{suffix}.dot.pdf">' \
+                             f'Fragment{suffix}</a></div>\n'
+
         result = f'<div class="pattern-instance{" pattern-repr" if is_repr else ""}">\n' \
                  f'<div>Repo: <a target="_blank" href="{repo_url}">{repo_name}</a></div>\n' \
                  f'<div>Commit: <a target="_blank" href="{repo_url}/commit/{commit_hash}">#{commit_hash}</a></div>\n' \
@@ -219,6 +236,7 @@ class Miner:
                  f'open [{line_number}]' \
                  f'</a>' \
                  f'</div>\n' \
+                 f'{optional_links}' \
                  f'</div>\n'
         return result
 
@@ -293,7 +311,7 @@ class Miner:
     @classmethod
     def _get_markup(cls, fragment, src, version):
         printable_nodes = set()
-        for node in fragment.graph.nodes:
+        for node in fragment.nodes:
             in_nodes = node.get_in_nodes()
             for in_node in in_nodes:
                 defs = in_node.get_definitions()

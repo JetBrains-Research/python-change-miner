@@ -102,6 +102,7 @@ class DataNode(Node):
         VARIABLE_DECL = 'variable-decl'
         VARIABLE_USAGE = 'variable-usage'
         LITERAL = 'literal'
+        KEYWORD = 'keyword'
         UNDEFINED = 'undefined'
 
     def __init__(self, label, ast, /, *, key=None, kind=None):
@@ -163,6 +164,7 @@ class OperationNode(StatementNode):
         BREAK = 'break'
         RAISE = 'raise'
         PASS = 'pass'
+        LAMBDA = 'lambda'
         ASSIGN = '='
 
     class Kind:
@@ -181,9 +183,10 @@ class OperationNode(StatementNode):
 
         UNCLASSIFIED = 'unclassified'
 
-    def __init__(self, label, ast, control_branch_stack, /, *, kind=None):
+    def __init__(self, label, ast, control_branch_stack, /, *, kind=None, key=None):
         super().__init__(label, ast, control_branch_stack)
         self.kind = kind or self.Kind.UNCLASSIFIED
+        self.key = key
 
     def __repr__(self):
         return f'#{self.statement_num} {self.label} <{self.kind}>'
@@ -335,7 +338,7 @@ class ExtControlFlowGraph:
             for sink in self.sinks:
                 sink.create_edge(node, link_type)
 
-        if isinstance(node, DataNode) and node.key:
+        if getattr(node, 'key', None):
             if link_type != LinkType.DEFINITION:
                 self.var_refs.add(node)
 
@@ -467,13 +470,14 @@ class ExtControlFlowGraph:
     def _get_node_dependencies(node):
         result = node.get_definitions()
 
-        if isinstance(node, OperationNode):
-            for in_node in node.get_incoming_nodes(label=LinkType.PARAMETER):
-                if not isinstance(in_node, DataNode):
-                    continue
-
-                result += in_node.get_definitions()
-                result.append(in_node)
+        # todo: unreliable
+        # if isinstance(node, OperationNode):
+        #     for in_node in node.get_incoming_nodes(label=LinkType.PARAMETER):
+        #         if not isinstance(in_node, DataNode):
+        #             continue
+        #
+        #         result += in_node.get_definitions()
+        #         result.append(in_node)
 
         return set(result)
 
