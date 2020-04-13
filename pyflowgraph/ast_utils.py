@@ -22,6 +22,8 @@ def get_var_full_name(node):  # todo: subscript in attr :(
 
         var_id = (curr_node.id if not isinstance(curr_node, ast.Call) else curr_node.func.id + '()') + '.' + var_id
         return var_id
+    elif isinstance(node, ast.FunctionDef):
+        return node.name
     else:
         raise ValueError
 
@@ -33,5 +35,7 @@ def get_var_short_name(node):
         return node.arg
     elif isinstance(node, ast.Attribute):
         return node.attr
+    elif isinstance(node, ast.FunctionDef):
+        return node.name
     else:
         raise ValueError

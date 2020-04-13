@@ -15,8 +15,10 @@ class Node:
         UNMAPPABLE = 'unmappable'
         SYNTAX_TOKEN_INTERVALS = 'syntax-tokens'
 
-        DEF_FOR = 'def_for'
-        DEF_BY = 'def_by'
+        DEF_FOR = 'def-for'
+        DEF_BY = 'def-by'
+
+        DEF_CONTROL_BRANCH_STACK = 'def-stack'
         # ORDER = 'order'  # todo
 
     def set_property(self, prop, value):
@@ -246,12 +248,13 @@ class LinkType:
 
 
 class ExtControlFlowGraph:
-    def __init__(self, node=None):
+    def __init__(self, visitor, /, *, node=None):
+        self.visitor = visitor
+
         self.entry_node = None
         self.nodes: Set[Node] = set()
         self.op_nodes: Set[OperationNode] = set()
 
-        self.var_key_to_def_nodes = {}  # key to set
         self.var_refs = set()
 
         self.sinks: Set[Node] = set()
@@ -272,17 +275,22 @@ class ExtControlFlowGraph:
         self.changed_nodes = set()
         self.gumtree = None
 
+    def _resolve_refs(self, graph):
+        resolved_refs = set()
+        for ref_node in graph.var_refs:
+            def_nodes = self.visitor.context.get_variables(ref_node.key)
+            if def_nodes:
+                for def_node in def_nodes:
+                    def_node.create_edge(ref_node, LinkType.REFERENCE)
+                resolved_refs.add(ref_node)
+        return resolved_refs
+
     def merge_graph(self, graph):
         self.nodes = self.nodes.union(graph.nodes)
         self.op_nodes = self.op_nodes.union(graph.op_nodes)
 
-        unresolved_refs = copy.copy(graph.var_refs)  # because we remove from set
-        for ref_node in graph.var_refs:
-            def_nodes = self.var_key_to_def_nodes.get(ref_node.key)
-            if def_nodes:
-                for def_node in def_nodes:
-                    def_node.create_edge(ref_node, LinkType.REFERENCE)
-                unresolved_refs.remove(ref_node)
+        resolved_refs = self._resolve_refs(graph)
+        unresolved_refs = graph.var_refs.difference(resolved_refs)
 
         for sink in self.statement_sinks:
             for source in graph.statement_sources:
@@ -292,7 +300,6 @@ class ExtControlFlowGraph:
         self.statement_sinks = graph.statement_sinks
 
         self.var_refs = self.var_refs.union(unresolved_refs)
-        self._merge_def_nodes(graph)
 
     def parallel_merge_graphs(self, graphs, op_link_type=None):
         old_sinks = copy.copy(self.sinks)
@@ -302,13 +309,8 @@ class ExtControlFlowGraph:
         self.statement_sinks.clear()
 
         for graph in graphs:
-            unresolved_refs = copy.copy(graph.var_refs)  # because we remove from set
-            for ref_node in graph.var_refs:
-                def_nodes = self.var_key_to_def_nodes.get(ref_node.key)
-                if def_nodes:
-                    for def_node in def_nodes:
-                        def_node.create_edge(ref_node, LinkType.REFERENCE)
-                    unresolved_refs.remove(ref_node)
+            resolved_refs = self._resolve_refs(graph)
+            unresolved_refs = graph.var_refs.difference(resolved_refs)
 
             if op_link_type:
                 for op_node in graph.op_nodes:
@@ -323,15 +325,10 @@ class ExtControlFlowGraph:
             self.nodes = self.nodes.union(graph.nodes)
             self.op_nodes = self.op_nodes.union(graph.op_nodes)
             self.sinks = self.sinks.union(graph.sinks)
-            self.var_refs = self.var_refs.union(graph.var_refs)
+            self.var_refs = self.var_refs.union(unresolved_refs)
 
             self.statement_sinks = self.statement_sinks.union(graph.statement_sinks)
             # self.statement_sources = self.statement_sources.union(graph.statement_sources)
-
-            self._merge_def_nodes(graph)
-
-    def _merge_def_nodes(self, graph):  # todo: a=5, a=8, b=a makes 2 refs
-        vb_utils.deep_merge_dict(self.var_key_to_def_nodes, graph.var_key_to_def_nodes)
 
     def add_node(self, node: Node, /, *, link_type=None):
         if link_type:
@@ -339,14 +336,7 @@ class ExtControlFlowGraph:
                 sink.create_edge(node, link_type)
 
         if isinstance(node, DataNode) and node.key:
-            if link_type == LinkType.DEFINITION:
-                def_nodes = self.var_key_to_def_nodes.setdefault(node.key, set())
-                for def_node in copy.copy(def_nodes):
-                    if def_node.key == node.key:
-                        def_nodes.remove(def_node)
-                def_nodes.add(node)
-                self.var_key_to_def_nodes[node.key] = def_nodes
-            else:
+            if link_type != LinkType.DEFINITION:
                 self.var_refs.add(node)
 
         # self.sinks.clear()

@@ -1,5 +1,6 @@
 import ast
 import copy
+from typing import Dict, Set
 
 from asttokens import asttokens
 
@@ -11,26 +12,32 @@ from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGrap
 
 class BuildingContext:
     def __init__(self):
-        self.local_variables = []
-
-    def add_scope(self):
-        self.local_variables.append({})
-
-    def remove_scope(self):
-        self.local_variables.pop()
+        self.var_key_to_def_nodes: Dict[Set] = {}
 
     def add_variable(self, node):
-        var_id = ast_utils.get_var_full_name(node)
-        self.local_variables[-1][var_id] = {
-            'id': var_id,
-            'ast': node
-        }
+        def_nodes = self.var_key_to_def_nodes.setdefault(node.key, set())
+        for def_node in [def_node for def_node in def_nodes if def_node.key == node.key]:
+            def_node_stack = def_node.get_property(Node.Property.DEF_CONTROL_BRANCH_STACK)
+            node_stack = node.get_property(Node.Property.DEF_CONTROL_BRANCH_STACK)
 
-    def get_variable_info(self, var_id):
-        for local_variables in self.local_variables:
-            var = local_variables.get(var_id)
-            if var is not None:
-                return var
+            if len(def_node_stack) < len(node_stack):
+                continue
+
+            if def_node_stack[:len(node_stack)] == node_stack:
+                def_nodes.remove(def_node)
+
+        def_nodes.add(node)
+        self.var_key_to_def_nodes[node.key] = def_nodes
+
+    def remove_variables(self, control_stack_branch):
+        for def_nodes in self.var_key_to_def_nodes.values():
+            same_stack_defs = [node for node in def_nodes
+                               if node.get_property(Node.Property.DEF_CONTROL_BRANCH_STACK) == control_stack_branch]
+            for def_node in same_stack_defs:
+                def_nodes.remove(def_node)
+
+    def get_variables(self, var_key):
+        return self.var_key_to_def_nodes.get(var_key)
 
 
 class GraphBuilder:
@@ -254,6 +261,9 @@ class ASTVisitorHelper:
     def __init__(self, ast_visitor):
         self.visitor = ast_visitor
 
+    def create_graph(self):
+        return self.visitor.create_graph()
+
     def _get_assign_group(self, node):
         group = []
         if isinstance(node, ast.Name):
@@ -283,7 +293,10 @@ class ASTVisitorHelper:
 
             val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
             val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
-            return val_fg, [target]
+
+            var_node.set_property(Node.Property.DEF_CONTROL_BRANCH_STACK, op_node.control_branch_stack)
+
+            return val_fg, [var_node]
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
             vars = []
             if isinstance(prepared_value, ExtControlFlowGraph):  # for function calls TODO: think about tree mapping
@@ -291,14 +304,14 @@ class ASTVisitorHelper:
                 fgs = []
 
                 for el in assign_group:
-                    fg, curr_vars = self.get_assign_graph_and_vars(op_node, el, ExtControlFlowGraph())
+                    fg, curr_vars = self.get_assign_graph_and_vars(op_node, el, self.create_graph())
                     fgs.append(fg)
                     vars += curr_vars
 
                 prepared_value.parallel_merge_graphs(fgs, op_link_type=LinkType.PARAMETER)
                 return prepared_value, vars
             else:
-                g = ExtControlFlowGraph()
+                g = self.create_graph()
                 fgs = []
                 for i, el in enumerate(target.elts):
                     fg, curr_vars = self.get_assign_graph_and_vars(op_node, el, prepared_value[i])
@@ -346,7 +359,7 @@ class ASTVisitorHelper:
                     if isinstance(starred_val_list[0], list) or isinstance(starred_val_list[0], tuple):
                         starred_val_list = starred_val_list[0].elts
 
-                starred_fg = ExtControlFlowGraph()
+                starred_fg = self.create_graph()
                 starred_fg.parallel_merge_graphs([self.visitor.visit(val) for val in starred_val_list])
 
                 op_node = OperationNode('List', target, self.visitor.control_branch_stack,
@@ -366,7 +379,7 @@ class ASTVisitorHelper:
         """
         possible targets are Attribute-, Subscript-, Slicing-, Starred+, Name+, List+, Tuple+
         """
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         op_node = OperationNode(OperationNode.Label.ASSIGN, node, self.visitor.control_branch_stack,
                                 kind=OperationNode.Kind.ASSIGN)
 
@@ -389,12 +402,16 @@ class ASTVisitorHelper:
 class ASTVisitor(ast.NodeVisitor):
     def __init__(self):
         self.context = BuildingContext()
-        self.fg = ExtControlFlowGraph()
+        self.fg = self.create_graph()
+
         self.curr_control = None
         self.curr_branch_kind = True
-
         self.control_branch_stack = []
+
         self.visitor_helper = ASTVisitorHelper(self)
+
+    def create_graph(self, node=None):
+        return ExtControlFlowGraph(self, node=node)
 
     def _switch_control_branch(self, new_control, new_branch_kind, replace=False):
         if replace:
@@ -407,7 +424,7 @@ class ASTVisitor(ast.NodeVisitor):
 
     # general AST visits
     def _visit_collection(self, node):
-        fg = ExtControlFlowGraph()
+        fg = self.create_graph()
         fg.parallel_merge_graphs([self.visit(item) for item in node.elts])
 
         op_node = OperationNode(node.__class__.__name__, node, self.control_branch_stack,
@@ -424,7 +441,7 @@ class ASTVisitor(ast.NodeVisitor):
             param_fg.add_node(op_node, link_type=LinkType.PARAMETER)
             param_fgs.append(param_fg)
 
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         g.parallel_merge_graphs(param_fgs)
         return g
 
@@ -432,8 +449,6 @@ class ASTVisitor(ast.NodeVisitor):
         return self._visit_op(op_name or op.__class__.__name__.lower(), op, op_kind, [left, right])
 
     def _visit_entry_node(self, node):
-        self.context.add_scope()
-
         arg_fgs = []
         if isinstance(node, ast.FunctionDef):
             arg_fgs = self._visit_fn_def_arguments(node)
@@ -449,7 +464,6 @@ class ASTVisitor(ast.NodeVisitor):
                 self.fg.merge_graph(fg)
 
         self._pop_control_branch()
-        self.context.remove_scope()
         return self.fg
 
     # Root visits
@@ -460,12 +474,11 @@ class ASTVisitor(ast.NodeVisitor):
         if not self.fg.entry_node:
             return self._visit_entry_node(node)
 
-        fg = ExtControlFlowGraph()
-        data_node = DataNode(node.name, node, key=node.name, kind=DataNode.Kind.VARIABLE_DECL)
-        data_node.set_property(
+        fg = self._visit_no_val_var_decl(node)
+        var_node = next(iter(fg.nodes))
+        var_node.set_property(
             Node.Property.SYNTAX_TOKEN_INTERVALS,
             [[node.first_token.startpos, node.first_token.startpos+len(node.first_token.line.strip())]])
-        fg.add_node(data_node, link_type=LinkType.DEFINITION)
         return fg
 
     def visit_Expr(self, node):
@@ -473,21 +486,19 @@ class ASTVisitor(ast.NodeVisitor):
 
     # Visit literals, variables and collections
     def visit_Str(self, node):
-        return ExtControlFlowGraph(node=DataNode(node.s, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(node.s, node, kind=DataNode.Kind.LITERAL))
 
     def visit_Num(self, node):
-        return ExtControlFlowGraph(node=DataNode(node.n, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(node.n, node, kind=DataNode.Kind.LITERAL))
 
     def visit_NameConstant(self, node):
-        return ExtControlFlowGraph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
 
     def visit_Constant(self, node):
-        return ExtControlFlowGraph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
 
     def visit_Pass(self, node):
-        return ExtControlFlowGraph(
-            node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack)
-        )
+        return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
 
     # Visit collections
     def visit_List(self, node):
@@ -506,7 +517,7 @@ class ASTVisitor(ast.NodeVisitor):
                                               op_kind=OperationNode.Kind.UNCLASSIFIED)
             fg_graphs.append(key_value_fg)
 
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         g.parallel_merge_graphs(fg_graphs)
         op_node = OperationNode('Dict', node, self.control_branch_stack, kind=OperationNode.Kind.COLLECTION)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
@@ -517,7 +528,7 @@ class ASTVisitor(ast.NodeVisitor):
         var_id = ast_utils.get_var_full_name(node)
         var_label = ast_utils.get_var_short_name(node)
 
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         g.add_node(DataNode(var_label, node, key=var_id, kind=DataNode.Kind.VARIABLE_USAGE))
         return g
 
@@ -562,10 +573,10 @@ class ASTVisitor(ast.NodeVisitor):
             raise GraphBuildingException
 
     def visit_AnnAssign(self, node):  # TODO: incorrect
-        return ExtControlFlowGraph()
+        return self.create_graph()
 
         if not node.value:
-            return ExtControlFlowGraph()
+            return self.create_graph()
 
         prepared_value = self.visitor_helper.prepare_assign_values(node.target, node.value)
         fg, vars = self.visitor_helper.get_assign_graph_and_vars(node, node.target, prepared_value)
@@ -593,10 +604,22 @@ class ASTVisitor(ast.NodeVisitor):
 
         return fg
 
+    def _visit_no_val_var_decl(self, target):
+        var_id = ast_utils.get_var_full_name(target)
+        var_label = ast_utils.get_var_short_name(target)
+
+        var_node = DataNode(var_label, target, key=var_id, kind=DataNode.Kind.VARIABLE_DECL)
+        fg = self.create_graph(node=var_node)
+
+        var_node.set_property(Node.Property.DEF_CONTROL_BRANCH_STACK, self.control_branch_stack)
+        self.context.add_variable(var_node)
+
+        return fg
+
     def _visit_func_call(self, node, name):
         arg_fgs = self._visit_fn_arguments(node)
 
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         g.parallel_merge_graphs(arg_fgs)
         op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
@@ -630,12 +653,7 @@ class ASTVisitor(ast.NodeVisitor):
         arg_fgs = []
         for arg_num, arg in enumerate(node.args.args):
             if arg_num < args_cnt - defaults_cnt:
-                var_id = ast_utils.get_var_full_name(arg)
-                var_label = ast_utils.get_var_short_name(arg)
-
-                fg = ExtControlFlowGraph()
-                arg_node = DataNode(var_label, arg, key=var_id, kind=DataNode.Kind.VARIABLE_DECL)
-                fg.add_node(arg_node, link_type=LinkType.DEFINITION)
+                fg = self._visit_no_val_var_decl(arg)
                 arg_fgs.append(fg)
             else:
                 default_arg_num = arg_num - (args_cnt - defaults_cnt)
@@ -685,7 +703,7 @@ class ASTVisitor(ast.NodeVisitor):
         control_node = ControlNode(ControlNode.Label.TRY, node, self.control_branch_stack)
         control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
 
-        fg = ExtControlFlowGraph()
+        fg = self.create_graph()
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
         fg1 = self._visit_control_node_body(control_node, node.body, True)
@@ -702,7 +720,7 @@ class ASTVisitor(ast.NodeVisitor):
         control_node = ControlNode(ControlNode.Label.EXCEPT, node, self.control_branch_stack)
         control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
 
-        fg = self.visit(node.type) if node.type else ExtControlFlowGraph()
+        fg = self.visit(node.type) if node.type else self.create_graph()
         fg.add_node(control_node, link_type=LinkType.PARAMETER)
         fg.merge_graph(self._visit_control_node_body(control_node, node.body, True))
         fg.statement_sources.clear()  # todo: bad workaround
@@ -710,7 +728,7 @@ class ASTVisitor(ast.NodeVisitor):
 
     def _visit_control_node_body(self, control_node, statements, new_branch_kind, replace_control=False):
         self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
-        fg = ExtControlFlowGraph()
+        fg = self.create_graph()
         fg.add_node(EmptyNode(self.control_branch_stack))
         for st in statements:
             fg.merge_graph(self.visit(st))
@@ -718,14 +736,14 @@ class ASTVisitor(ast.NodeVisitor):
         return fg
 
     def visit_Import(self, _):
-        return ExtControlFlowGraph()  # TODO: Import.names[i].name <- alias.name, should be able to ref as data node
+        return self.create_graph()  # TODO: Import.names[i].name <- alias.name, should be able to ref as data node
 
     def visit_ImportFrom(self, _):
-        return ExtControlFlowGraph()  # TODO:ImportFrom.module -qual> ImportFrom.names[i].name <- alias.name
+        return self.create_graph()  # TODO:ImportFrom.module -qual> ImportFrom.names[i].name <- alias.name
 
     # Return/continue/break
-    def _visit_dep_resetter(self, label, ast, kind):
-        g = ExtControlFlowGraph()
+    def _visit_dep_resetter(self, label, ast, kind, reset_variables=False):
+        g = self.create_graph()
         if getattr(ast, 'value', None):
             g.merge_graph(self.visit(ast.value))
         elif getattr(ast, 'exc', None):
@@ -733,14 +751,18 @@ class ASTVisitor(ast.NodeVisitor):
 
         op_node = OperationNode(label, ast, self.control_branch_stack, kind=kind)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
+
         g.statement_sinks.clear()
+        if reset_variables:
+            self.context.remove_variables(self.control_branch_stack)
+
         return g
 
     def visit_Raise(self, node):
-        return self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE)
+        return self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE, reset_variables=True)
 
     def visit_Return(self, node):
-        return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN)
+        return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN, reset_variables=True)
 
     def visit_Continue(self, node):
         return self._visit_dep_resetter(OperationNode.Label.CONTINUE, node, OperationNode.Kind.CONTINUE)
@@ -756,7 +778,7 @@ class ASTVisitor(ast.NodeVisitor):
         return self.visit(node.value)
 
     def visit_JoinedStr(self, node):
-        g = ExtControlFlowGraph()
+        g = self.create_graph()
         g.parallel_merge_graphs([self.visit(val) for val in node.values])
 
         op_node = OperationNode('fstr', node, self.control_branch_stack, kind=OperationNode.Kind.UNCLASSIFIED)
@@ -776,7 +798,7 @@ class ASTVisitor(ast.NodeVisitor):
             right_fg.add_node(op_node, link_type=LinkType.PARAMETER)
 
             fgs = [last_fg, right_fg]
-            g = ExtControlFlowGraph()
+            g = self.create_graph()
             g.parallel_merge_graphs(fgs)
 
             last_fg = g
