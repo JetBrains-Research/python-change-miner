@@ -78,11 +78,13 @@ class Miner:
         logger.warning(f'Done filtering, total count = {self._patterns_cnt}')
 
         if self.HIDE_OVERLAPPED_FRAGMENTS:
+            logger.info('Removing overlapped fragments from patterns')
             for patterns in self._size_to_patterns.values():
                 for pattern in patterns:
                     overlapped_fragments = Pattern.get_graph_overlapped_fragments(pattern.fragments)
                     for fragment in overlapped_fragments:
                         pattern.fragments.remove(fragment)
+            logger.info('Done removing overlapped fragments from patterns')
 
     def _filter_patterns(self):
         keys = sorted(self._size_to_patterns.keys())
