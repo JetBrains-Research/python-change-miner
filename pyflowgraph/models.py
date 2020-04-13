@@ -196,6 +196,7 @@ class ControlNode(StatementNode):
     class Label:
         IF = 'if'
         FOR = 'for'
+        WHILE = 'while'
         TRY = 'try'
         EXCEPT = 'except'
 

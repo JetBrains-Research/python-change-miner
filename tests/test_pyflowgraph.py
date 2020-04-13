@@ -11,6 +11,7 @@ def test_graph_building():
     _build_attribute_call()
     _build_attribute_refs_test()
     _build_attribute_ref_after_call()
+    _build_while()
     # _build_subscript_fn_call()
 
 
@@ -56,14 +57,6 @@ def _build_attribute_call():
     assert labels == expected_labels
 
 
-def _build_attribute_ref_after_call():
-    fg = _build_fg("""
-        self.o.fn().param = 14
-        print(self.o.fn().param)
-    """)
-    assert True
-
-
 def _build_attribute_refs_test():
     fg = _build_fg("""
         self.field.value = 20
@@ -73,21 +66,39 @@ def _build_attribute_refs_test():
     assert True
 
 
-def _build_subscript_fn_call():
+def _build_attribute_ref_after_call():
     fg = _build_fg("""
-        arr = []
-        arr[0]()
+        self.o.fn().param = 14
+        print(self.o.fn().param)
     """)
     assert True
 
 
-def _build_subscript_assign():
+def _build_while():
     fg = _build_fg("""
-        arr = []
-        k = 0, i = 0
-        arr[i] = k
+        i = 0
+        while i < 10:
+            i += 1
+        print(i)
     """)
     assert True
+
+
+# def _build_subscript_fn_call():
+#     fg = _build_fg("""
+#         arr = []
+#         arr[0]()
+#     """)
+#     assert True
+#
+#
+# def _build_subscript_assign():
+#     fg = _build_fg("""
+#         arr = []
+#         k = 0, i = 0
+#         arr[i] = k
+#     """)
+#     assert True
 
 
 def test_controls_switching():

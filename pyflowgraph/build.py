@@ -697,7 +697,18 @@ class ASTVisitor(ast.NodeVisitor):
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
         fg1 = self._visit_control_node_body(control_node, node.body, True)
-        # fg2 = self._visit_control_node_body(control_node, node.orelse, False)
+        # fg2 = self._visit_control_node_body(control_node, node.orelse, False) todo
+        fg.parallel_merge_graphs([fg1])
+        fg.statement_sinks.clear()
+        return fg
+
+    def visit_While(self, node):
+        control_node = ControlNode(ControlNode.Label.WHILE, node, self.control_branch_stack)
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
+
+        fg1 = self._visit_control_node_body(control_node, node.body, True)
+        # orelse todo
         fg.parallel_merge_graphs([fg1])
         fg.statement_sinks.clear()
         return fg
