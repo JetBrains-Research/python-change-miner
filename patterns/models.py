@@ -448,7 +448,7 @@ class Pattern:
         freq = self.MIN_FREQUENCY - 1
 
         for curr_group in groups:
-            overlapped_fragments: list = self._get_graph_overlapped_fragments(curr_group)
+            overlapped_fragments: list = self.get_graph_overlapped_fragments(curr_group)
             curr_freq = len(curr_group) - len(overlapped_fragments)
 
             if curr_freq > freq:
@@ -463,7 +463,7 @@ class Pattern:
         return freq_group, freq
 
     @staticmethod
-    def _get_graph_overlapped_fragments(ext_fragments: frozenset):
+    def get_graph_overlapped_fragments(ext_fragments: frozenset):
         """
         Return fragments, which are overlapped in a graph by other fragments.
         """
@@ -480,9 +480,6 @@ class Pattern:
                 post_condition_fn=lambda i, j: overlapped_fragments.append(fragments[j])
             )
         return overlapped_fragments
-
-    def _remove_overlapping_fragments(self, ext_fragments):
-        pass
 
     def is_change(self):
         return self.repr.is_change()

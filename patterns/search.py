@@ -17,6 +17,7 @@ from patterns.models import Fragment, Pattern
 class Miner:
     OUTPUT_DIR = settings.get('patterns_output_dir')
     FULL_PRINT = settings.get('patterns_full_print', False)
+    HIDE_OVERLAPPED_FRAGMENTS = settings.get('patterns_hide_overlapped_fragments', True)
 
     def __init__(self):
         self._size_to_patterns = {}
@@ -75,6 +76,13 @@ class Miner:
 
         self._filter_patterns()
         logger.warning(f'Done filtering, total count = {self._patterns_cnt}')
+
+        if self.HIDE_OVERLAPPED_FRAGMENTS:
+            for patterns in self._size_to_patterns.values():
+                for pattern in patterns:
+                    overlapped_fragments = Pattern.get_graph_overlapped_fragments(pattern.fragments)
+                    for fragment in overlapped_fragments:
+                        pattern.fragments.remove(fragment)
 
     def _filter_patterns(self):
         keys = sorted(self._size_to_patterns.keys())

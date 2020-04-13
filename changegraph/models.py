@@ -134,7 +134,8 @@ class ChangeNode:  # todo: base class for pfg and cg
         return self.id
 
     def __repr__(self):
-        return f'#{self.id} v{self.version} {self.label} ({self.original_label}) {self.kind}.{self.sub_kind}'
+        original_label = getattr(self, 'original_label', 'unknown')  # TODO: for backward compatibility, remove later
+        return f'#{self.id} v{self.version} {self.label} ({original_label}) {self.kind}.{self.sub_kind}'
 
 
 class ChangeEdge:
