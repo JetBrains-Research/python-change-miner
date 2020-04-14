@@ -176,8 +176,11 @@ class Miner:
         pattern_id_dir = os.path.join(root_dir, str(pattern.id))
         os.makedirs(pattern_id_dir, exist_ok=True)
 
-        printable_fragments = pattern.fragments if cls.FULL_PRINT else [pattern.repr]
+        details = cls._generate_html_details(pattern)
+        with open(os.path.join(pattern_id_dir, 'details.html'), 'w+') as f:
+            f.write(details)
 
+        printable_fragments = pattern.fragments if cls.FULL_PRINT else [pattern.repr]
         for fragment in printable_fragments:
             file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
             changegraph.print_out_nodes(fragment.nodes, path=os.path.join(pattern_id_dir, f'fragment{file_suffix}.dot'))
@@ -187,10 +190,6 @@ class Miner:
             if sample:
                 with open(os.path.join(pattern_id_dir, f'sample{file_suffix}.html'), 'w+') as f:
                     f.write(sample)
-
-        details = cls._generate_html_details(pattern)
-        with open(os.path.join(pattern_id_dir, 'details.html'), 'w+') as f:
-            f.write(details)
 
     @classmethod
     def _generate_html_details(cls, pattern):
