@@ -166,7 +166,7 @@ class GumTree:
             else:
                 is_changed = not len(node.mapped.children)
                 if not is_changed:
-                    ignore_type_labels = []
+                    ignore_child_ids = []
                     if node.type_label in [GumTree.TypeLabel.FUNC_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
                         attr = node.get_child_by_type_label(GumTree.TypeLabel.ATTR)
                         attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
@@ -174,19 +174,19 @@ class GumTree:
 
                         if attr:
                             is_changed = bool(attr.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_type_labels.append(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                            ignore_child_ids.append(attr.id)
                         elif attr_load:
                             is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_type_labels.append(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                            ignore_child_ids.append(attr_load.id)
                         elif name_load:
                             is_changed = bool(name_load.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_type_labels.append(GumTree.TypeLabel.NAME_LOAD)
+                            ignore_child_ids.append(name_load.id)
                         else:
                             logger.error(f'Unable to identify {node.type_label} node')
                             raise MappingException
 
                     if not is_changed:
-                        is_changed = cls._are_children_changed(node, ignore_type_labels=ignore_type_labels)
+                        is_changed = cls._are_children_changed(node, ignore_child_ids=ignore_child_ids)
 
         if not is_changed:
             node.status = GumTreeNode.STATUS.UNCHANGED
@@ -196,9 +196,9 @@ class GumTree:
         return is_changed
 
     @staticmethod
-    def _are_children_changed(node, /, *, ignore_type_labels=None):
+    def _are_children_changed(node, /, *, ignore_child_ids=None):
         for child in node.children:
-            if ignore_type_labels and child.type_label in ignore_type_labels:
+            if child.id and child.type_label in ignore_child_ids:
                 continue
 
             if child.status == GumTreeNode.STATUS.UNCHANGED:

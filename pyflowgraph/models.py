@@ -285,7 +285,8 @@ class ExtControlFlowGraph:
             def_nodes = self.visitor.context.get_variables(ref_node.key)
             if def_nodes:
                 for def_node in def_nodes:
-                    def_node.create_edge(ref_node, LinkType.REFERENCE)
+                    if def_node.statement_num < ref_node.statement_num:
+                        def_node.create_edge(ref_node, LinkType.REFERENCE)
                 resolved_refs.add(ref_node)
         return resolved_refs
 
