@@ -3,6 +3,7 @@ import subprocess
 from enum import Enum
 
 import settings
+from log import logger
 
 
 def parse(src_path):
@@ -153,33 +154,8 @@ class GumTree:
 
     @classmethod
     def _adjust_changes(cls, gt_src, gt_dest):
-        gt_src.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
-        gt_dest.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
-
-        # for gt in [gt_src, gt_dest]:
-        #     for node in gt.nodes:
-        #         # simple method call should have status.updated if inner code changes
-        #         # attr method call has status.unchanged though
-        #         if node.type_label in [GumTree.TypeLabel.METHOD_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
-        #             max_status = GumTreeNode.STATUS.UNCHANGED
-        #
-        #             def upd_max_status(gt_node):
-        #                 nonlocal max_status
-        #                 max_status = max(max_status, gt_node.status)
-        #
-        #             gt.dfs(fn_after=upd_max_status, start_node=node)
-        #             node.status = max_status
-
-    @classmethod
-    def _change_detector_before_visited(cls, node):
-        if node.type_label != GumTree.TypeLabel.ATTRIBUTE_LOAD:
-            return True
-
-        is_changed = cls._change_detector(node.get_child_by_type_label(GumTree.TypeLabel.ATTR))
-        if not is_changed:
-            node.status = GumTreeNode.STATUS.UNCHANGED
-
-        return False
+        gt_src.dfs(fn_after=cls._change_detector)
+        gt_dest.dfs(fn_after=cls._change_detector)
 
     @classmethod
     def _change_detector(cls, node):
@@ -190,13 +166,23 @@ class GumTree:
             else:
                 is_changed = not len(node.mapped.children)
                 if not is_changed:
-                    if node.type_label == GumTree.TypeLabel.FUNC_CALL:
-                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                    ignore_type_labels = []
+                    if node.type_label in [GumTree.TypeLabel.FUNC_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
+                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)  # prob 'attr' better
+                        name_load = node.get_child_by_type_label(GumTree.TypeLabel.NAME_LOAD)
+
                         if attr_load:
                             is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)
+                            ignore_type_labels.append(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                        elif name_load:
+                            is_changed = bool(name_load.status != GumTreeNode.STATUS.UNCHANGED)
+                            ignore_type_labels.append(GumTree.TypeLabel.NAME_LOAD)
+                        else:
+                            logger.error(f'Unable to identify {node.type_label} node')
+                            raise MappingException
 
                     if not is_changed:
-                        is_changed = cls._are_children_changed(node)
+                        is_changed = cls._are_children_changed(node, ignore_type_labels=ignore_type_labels)
 
         if not is_changed:
             node.status = GumTreeNode.STATUS.UNCHANGED
@@ -206,8 +192,11 @@ class GumTree:
         return is_changed
 
     @staticmethod
-    def _are_children_changed(node):
+    def _are_children_changed(node, /, *, ignore_type_labels=None):
         for child in node.children:
+            if ignore_type_labels and child.type_label in ignore_type_labels:
+                continue
+
             if child.status == GumTreeNode.STATUS.UNCHANGED:
                 return False
         return True
@@ -229,19 +218,6 @@ class GumTree:
 
     def dfs(self, fn_before=None, fn_after=None, start_node=None):
         self._do_dfs(start_node or self.root, {}, fn_before=fn_before, fn_after=fn_after)
-
-        # if node.type_label == 'Call':  # TODO: it's better to move this into node.is_equal
-        #     attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
-        #     if attr_load:
-        #         node.is_changed = attr_load.is_changed
-        #         return node.is_changed
-        #
-        #     name_load = node.get_child_by_type_label(GumTree.TypeLabel.NAME_LOAD)
-        #     if name_load:
-        #         node.is_changed = name_load.is_changed
-        #         return node.is_changed
-        #
-        # cls._base_children_change_detector(node)
 
 
 class GumTreeNode:
@@ -298,3 +274,7 @@ class GumTreeNode:
 
     def __repr__(self):
         return f'#{self.id} {self.type_label} {self.label} [{self.pos}:{self.length}]'
+
+
+class MappingException(Exception):
+    pass
