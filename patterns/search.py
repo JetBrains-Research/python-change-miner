@@ -6,6 +6,7 @@ import multiprocessing
 import multiprocessing.pool
 import functools
 import copy
+import html
 
 import settings
 import changegraph
@@ -366,13 +367,16 @@ class Miner:
             start += offset
             end += offset
 
-            chunk = markup[start:end]
+            src_chunk = markup[start:end]
             lb_repl_cnt = 0
 
             def line_break_repl(_):
                 nonlocal lb_repl_cnt
                 lb_repl_cnt += 1
                 return f'{put_after}\n{put_before}'
+
+            chunk = html.escape(src_chunk)
+            offset += len(chunk) - len(src_chunk)
 
             chunk = re.sub(line_break_regex, line_break_repl, chunk)
             offset += offset_len*lb_repl_cnt
