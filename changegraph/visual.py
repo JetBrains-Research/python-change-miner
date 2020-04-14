@@ -1,5 +1,6 @@
 import graphviz as gv
 import os
+import html
 
 from changegraph.models import Node, ChangeGraph, ChangeNode
 
@@ -20,7 +21,7 @@ def _get_label_and_attrs(node):
     else:
         attrs['color'] = 'green4'
 
-    label = f'{label} [{node.id}]'
+    label = f'{html.escape(label)} [{node.id}]'
     return label, attrs
 
 

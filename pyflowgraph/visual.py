@@ -1,5 +1,6 @@
 import graphviz as gv
 import os
+import html
 
 from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, EntryNode
 
@@ -19,7 +20,7 @@ def _get_label_and_attrs(node, show_op_kind=True):
     elif isinstance(node, ControlNode):
         attrs['shape'] = 'diamond'
 
-    label = f'{label} [{node.statement_num}]'
+    label = f'{html.escape(label)} [{node.statement_num}]'
     return label, attrs
 
 
