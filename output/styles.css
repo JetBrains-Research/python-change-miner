@@ -119,3 +119,8 @@ a:hover {
     float: left;
     clear: left;
 }
+
+.pattern-instance.pattern-repr::before {
+    content: 'Representative';
+    color: red;
+}

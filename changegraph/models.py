@@ -24,7 +24,6 @@ class ChangeNode:  # todo: base class for pfg and cg
     class CommonLabel:
         VARIABLE = 'var'
         LITERAL = 'lit'
-        KEYWORD = 'keyword'
 
     class Kind:
         DATA_NODE = 'data'
@@ -78,10 +77,8 @@ class ChangeNode:  # todo: base class for pfg and cg
 
             if sub_kind in [cls.SubKind.DATA_VARIABLE_DECL, cls.SubKind.DATA_VARIABLE_USAGE]:
                 label = cls.CommonLabel.VARIABLE
-            elif sub_kind == cls.SubKind.DATA_LITERAL:
+            elif sub_kind in [cls.SubKind.DATA_LITERAL, cls.SubKind.DATA_KEYWORD]:
                 label = cls.CommonLabel.LITERAL
-            elif sub_kind == cls.SubKind.DATA_KEYWORD:
-                label = cls.CommonLabel.KEYWORD
 
         elif isinstance(fg_node, OperationNode):
             kind = cls.Kind.OPERATION_NODE

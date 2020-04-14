@@ -154,6 +154,7 @@ class GumTree:
     @classmethod
     def _adjust_changes(cls, gt_src, gt_dest):
         gt_src.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
+        gt_dest.dfs(fn_before=cls._change_detector_before_visited, fn_after=cls._change_detector)
 
         # for gt in [gt_src, gt_dest]:
         #     for node in gt.nodes:
