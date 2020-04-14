@@ -182,14 +182,23 @@ class Miner:
 
         printable_fragments = pattern.fragments if cls.FULL_PRINT else [pattern.repr]
         for fragment in printable_fragments:
-            file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
-            changegraph.print_out_nodes(fragment.nodes, path=os.path.join(pattern_id_dir, f'fragment{file_suffix}.dot'))
-            changegraph.export_graph_image(fragment.graph, path=os.path.join(pattern_id_dir, f'graph.dot'))
+            try:
+                cls._print_fragment(pattern, pattern_id_dir, fragment)
+            except:
+                logger.error(f'Unable to print fragment {fragment.id} for pattern{pattern.id}, '
+                             f'commit=#{fragment.graph.repo_info.commit_hash}, '
+                             f'file={fragment.graph.repo_info.old_method.file_path}', exc_info=True)
 
-            sample = cls._generate_html_sample(f'{pattern.id}{file_suffix}', fragment)
-            if sample:
-                with open(os.path.join(pattern_id_dir, f'sample{file_suffix}.html'), 'w+') as f:
-                    f.write(sample)
+    @classmethod
+    def _print_fragment(cls, pattern, out_dir, fragment):
+        file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
+        changegraph.print_out_nodes(fragment.nodes, path=os.path.join(out_dir, f'fragment{file_suffix}.dot'))
+        changegraph.export_graph_image(fragment.graph, path=os.path.join(out_dir, f'graph.dot'))
+
+        sample = cls._generate_html_sample(f'{pattern.id}{file_suffix}', fragment)
+        if sample:
+            with open(os.path.join(out_dir, f'sample{file_suffix}.html'), 'w+') as f:
+                f.write(sample)
 
     @classmethod
     def _generate_html_details(cls, pattern):

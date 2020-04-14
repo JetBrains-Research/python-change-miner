@@ -6,7 +6,6 @@ from changegraph.models import Node, ChangeGraph, ChangeNode
 
 
 def _get_label_and_attrs(node):
-    label = f'{node.label}'
     attrs = {'shape': 'ellipse'}
 
     if node.kind == ChangeNode.Kind.DATA_NODE:
@@ -21,7 +20,7 @@ def _get_label_and_attrs(node):
     else:
         attrs['color'] = 'green4'
 
-    label = f'{html.escape(label)} [{node.id}]'
+    label = f'{html.escape(node.label)} [{node.id}]'
     return label, attrs
 
 
