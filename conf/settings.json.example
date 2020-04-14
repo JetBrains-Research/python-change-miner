@@ -13,6 +13,7 @@
   "patterns_async_mining": true,
   "patterns_full_print": false,
   "patterns_hide_overlapped_fragments": true,
+  "patterns_min_size": 3,
 
   "logger_file_path": "miner.log",
   "logger_file_log_level": "INFO",

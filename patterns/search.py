@@ -19,6 +19,7 @@ class Miner:
     OUTPUT_DIR = settings.get('patterns_output_dir')
     FULL_PRINT = settings.get('patterns_full_print', False)
     HIDE_OVERLAPPED_FRAGMENTS = settings.get('patterns_hide_overlapped_fragments', True)
+    MIN_PATTERN_SIZE = settings.get('patterns_min_size', 3)
 
     def __init__(self):
         self._size_to_patterns = {}
@@ -67,7 +68,7 @@ class Miner:
             pattern = Pattern(fragments, len(fragments))
             pattern = pattern.extend()
 
-            if pattern:
+            if pattern and pattern.size > self.MIN_PATTERN_SIZE:
                 self.add_pattern(pattern)
                 logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
 
