@@ -38,15 +38,15 @@ def _get_nodes_digraph(nodes: set, file_name, separate_mapped=True):
 
             used[node] = used[node.mapped] = True
 
-            s = gv.Digraph(f'subgraph: {node} to {node.mapped}')
-            s.node(f'{node}', label=label, _attributes=attrs)
-            s.node(f'{node.mapped}', label=mapped_label, _attributes=mapped_attrs)
+            s = gv.Digraph(f'subgraph: {node.id} to {node.mapped.id}')
+            s.node(f'{node.id}', label=label, _attributes=attrs)
+            s.node(f'{node.mapped.id}', label=mapped_label, _attributes=mapped_attrs)
 
             s.graph_attr.update(rank='same')
             vg.subgraph(s)
         else:
             label, attrs = _get_label_and_attrs(node)
-            vg.node(f'{node}', label=label, _attributes=attrs)
+            vg.node(f'{node.id}', label=label, _attributes=attrs)
 
     for node in nodes:
         for edge in node.in_edges:
@@ -56,7 +56,7 @@ def _get_nodes_digraph(nodes: set, file_name, separate_mapped=True):
             label = edge.label
             attrs = {}
 
-            vg.edge(f'{edge.node_from}', f'{edge.node_to}', xlabel=label, _attributes=attrs)
+            vg.edge(f'{edge.node_from.id}', f'{edge.node_to.id}', xlabel=label, _attributes=attrs)
 
     return vg
 

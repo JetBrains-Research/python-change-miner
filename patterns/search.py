@@ -185,9 +185,10 @@ class Miner:
             try:
                 cls._print_fragment(pattern, pattern_id_dir, fragment)
             except:
-                logger.error(f'Unable to print fragment {fragment.id} for pattern{pattern.id}, '
+                logger.error(f'Unable to print fragment {fragment.id} for pattern {pattern.id}, '
                              f'commit=#{fragment.graph.repo_info.commit_hash}, '
-                             f'file={fragment.graph.repo_info.old_method.file_path}', exc_info=True)
+                             f'file={fragment.graph.repo_info.old_method.file_path}, '
+                             f'method={fragment.graph.old_method.full_name}', exc_info=True)
 
     @classmethod
     def _print_fragment(cls, pattern, out_dir, fragment):
@@ -364,35 +365,56 @@ class Miner:
 
         markup = src
         offset = 0
-
-        put_before = f'<span class="highlighted">'
-        put_after = f'</span>'
-        offset_len = len(put_before) + len(put_after)
-
-        line_break_regex = re.compile('\n')
+        last_end = 0
 
         for start, end in pattern_intervals:
             start += offset
             end += offset
 
-            src_chunk = markup[start:end]
-            lb_repl_cnt = 0
+            escaped_markup = markup[:last_end] + html.escape(markup[last_end:start]) + markup[start:]
+            offset_delta = len(escaped_markup) - len(markup)
+            markup = escaped_markup
 
-            def line_break_repl(_):
-                nonlocal lb_repl_cnt
-                lb_repl_cnt += 1
-                return f'{put_after}\n{put_before}'
+            start += offset_delta
+            end += offset_delta
+            offset += offset_delta
 
-            chunk = html.escape(src_chunk)
-            offset += len(chunk) - len(src_chunk)
+            chunk, offset_delta = cls._get_highlighted_chunk(markup[start:end])
+            markup = markup[:start] + chunk + markup[end:]
 
-            chunk = re.sub(line_break_regex, line_break_repl, chunk)
-            offset += offset_len*lb_repl_cnt
+            offset += offset_delta
+            last_end = end + offset_delta
 
-            markup = markup[:start] + put_before + chunk + put_after + markup[end:]
-            offset += offset_len
+        markup = markup[:last_end] + html.escape(markup[last_end:])
 
         return markup.strip()
+
+    @staticmethod
+    def _get_highlighted_chunk(chunk_src):
+        # escape
+        chunk = html.escape(chunk_src)
+        offset = len(chunk) - len(chunk_src)
+
+        # mark changes
+        put_before = f'<span class="highlighted">'
+        put_after = f'</span>'
+        highlight_offset = (len(put_before) + len(put_after))
+
+        line_break_regex = re.compile('\n')
+        lb_repl_cnt = 0
+
+        def line_break_repl(_):
+            nonlocal lb_repl_cnt
+            lb_repl_cnt += 1
+            return f'{put_after}\n{put_before}'
+
+        chunk = re.sub(line_break_regex, line_break_repl, chunk)
+        offset += lb_repl_cnt * highlight_offset
+
+        chunk = put_before + chunk + put_after
+        offset += highlight_offset
+
+        return chunk, offset
 
     @staticmethod
     def _merge_intervals(intervals):
