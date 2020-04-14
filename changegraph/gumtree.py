@@ -168,10 +168,14 @@ class GumTree:
                 if not is_changed:
                     ignore_type_labels = []
                     if node.type_label in [GumTree.TypeLabel.FUNC_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
-                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)  # prob 'attr' better
+                        attr = node.get_child_by_type_label(GumTree.TypeLabel.ATTR)
+                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
                         name_load = node.get_child_by_type_label(GumTree.TypeLabel.NAME_LOAD)
 
-                        if attr_load:
+                        if attr:
+                            is_changed = bool(attr.status != GumTreeNode.STATUS.UNCHANGED)
+                            ignore_type_labels.append(GumTree.TypeLabel.ATTRIBUTE_LOAD)
+                        elif attr_load:
                             is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)
                             ignore_type_labels.append(GumTree.TypeLabel.ATTRIBUTE_LOAD)
                         elif name_load:
