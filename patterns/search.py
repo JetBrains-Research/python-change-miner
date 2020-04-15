@@ -195,7 +195,7 @@ class Miner:
     def _print_fragment(cls, pattern, out_dir, fragment):
         file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
         changegraph.print_out_nodes(fragment.nodes, path=os.path.join(out_dir, f'fragment{file_suffix}.dot'))
-        changegraph.export_graph_image(fragment.graph, path=os.path.join(out_dir, f'graph.dot'))
+        changegraph.export_graph_image(fragment.graph, path=os.path.join(out_dir, f'graph{file_suffix}.dot'))
 
         sample = cls._generate_html_sample(f'{pattern.id}{file_suffix}', fragment)
         if sample:
@@ -211,7 +211,8 @@ class Miner:
         inner = f''
         if not cls.FULL_PRINT:
             inner += f'<div><a href="sample.html">Sample</a></div>\n' \
-                     f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n'
+                     f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n' \
+                     f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div>\n'
 
         instance_separator = '<br>\n\n'
         details = f'<html lang="en">\n' \
@@ -221,7 +222,6 @@ class Miner:
                   f'</head>\n' \
                   f'<body>\n' \
                   f'<a href="../contents.html">...</a><br><br>\n' \
-                  f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div>\n' \
                   f'<div>Frequency: {pattern.freq}</div><br>\n' \
                   f'{inner}<br>\n' \
                   f'<h2>Instances:</h2>\n' \
@@ -243,8 +243,8 @@ class Miner:
         if cls.FULL_PRINT:
             suffix = f'-{fragment.id}'
             optional_links = f'<div><a href="sample{suffix}.html">Sample{suffix}</a></div>\n' \
-                             f'<div><a target="_blank" href="fragment{suffix}.dot.pdf">' \
-                             f'Fragment{suffix}</a></div>\n'
+                             f'<div><a target="_blank" href="fragment{suffix}.dot.pdf">Fragment{suffix}</a></div>\n' \
+                             f'<div><a target="_blank" href="graph{suffix}.dot.pdf">Graph{suffix}</a></div>\n'
 
         result = f'<div class="pattern-instance{" pattern-repr" if is_repr else ""}">\n' \
                  f'<div>Repo: <a target="_blank" href="{repo_url}">{repo_name}</a></div>\n' \

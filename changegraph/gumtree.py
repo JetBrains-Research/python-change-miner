@@ -159,6 +159,9 @@ class GumTree:
 
     @classmethod
     def _change_detector(cls, node):
+        if node.status in [GumTreeNode.STATUS.MOVED, GumTreeNode.STATUS.INSERTED, GumTreeNode.STATUS.DELETED]:
+            return True
+
         is_changed = not node.mapped or not node.is_equal(node.mapped)
         if not is_changed:
             if not node.children:
@@ -168,22 +171,9 @@ class GumTree:
                 if not is_changed:
                     ignore_child_ids = []
                     if node.type_label in [GumTree.TypeLabel.FUNC_CALL, GumTree.TypeLabel.ATTRIBUTE_LOAD]:
-                        attr = node.get_child_by_type_label(GumTree.TypeLabel.ATTR)
-                        attr_load = node.get_child_by_type_label(GumTree.TypeLabel.ATTRIBUTE_LOAD)
-                        name_load = node.get_child_by_type_label(GumTree.TypeLabel.NAME_LOAD)
-
-                        if attr:
-                            is_changed = bool(attr.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_child_ids.append(attr.id)
-                        elif attr_load:
-                            is_changed = bool(attr_load.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_child_ids.append(attr_load.id)
-                        elif name_load:
-                            is_changed = bool(name_load.status != GumTreeNode.STATUS.UNCHANGED)
-                            ignore_child_ids.append(name_load.id)
-                        else:
-                            logger.error(f'Unable to identify {node.type_label} node')
-                            raise MappingException
+                        name_node = node.children[0]
+                        is_changed = bool(name_node.status != GumTreeNode.STATUS.UNCHANGED)
+                        ignore_child_ids.append(name_node.id)
 
                     if not is_changed:
                         is_changed = cls._are_children_changed(node, ignore_child_ids=ignore_child_ids)
