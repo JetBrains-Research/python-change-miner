@@ -20,7 +20,7 @@ def _get_label_and_attrs(node):
     else:
         attrs['color'] = 'green4'
 
-    label = f'{html.escape(node.label)} [{node.id}]'
+    label = f'{html.escape(node.label)} ({html.escape(node.original_label)}) [{node.id}]'
     return label, attrs
 
 
@@ -71,7 +71,7 @@ def export_graph_image(graph: ChangeGraph, path: str = 'change-graph.dot'):
     visual_graph.render(filename=file_name, directory=directory)
 
 
-def print_out_nodes(nodes: set, path: str = 'nodes.dot'):
+def print_out_nodes(nodes, path: str = 'nodes.dot'):
     directory, file_name = os.path.split(path)
     visual_graph = _get_nodes_digraph(nodes, file_name)
     visual_graph.render(filename=path, directory=directory)

@@ -98,21 +98,29 @@ class ChangeNode:  # todo: base class for pfg and cg
 
         return created
 
-    def get_in_nodes(self, label=None):
-        return {e.node_from for e in self.in_edges if not label or e.label == label}
+    def get_in_nodes(self, /, *, labels=None, excluded_labels=None):
+        return self._get_nodes_by_edges(need_out=False, labels=labels, excluded_labels=excluded_labels)
 
-    def get_out_nodes(self, label=None):
-        return {e.node_to for e in self.out_edges if not label or e.label == label}
+    def get_out_nodes(self, /, *, labels=None, excluded_labels=None):
+        return self._get_nodes_by_edges(need_out=True, labels=labels, excluded_labels=excluded_labels)
 
-    def get_out_node_groups(self, grouping_label):
-        group1 = set()
-        group2 = set()
-        for e in self.out_edges:
-            if e.label == grouping_label:
-                group1.add(e.node_to)
+    def _get_nodes_by_edges(self, need_out=False, labels=None, excluded_labels=None):
+        if all([labels, excluded_labels]):
+            raise ValueError('Unsupported combination of arguments')
+
+        result = set()
+        edges = self.out_edges if need_out else self.in_edges
+
+        for e in edges:
+            if excluded_labels and e.label in excluded_labels or labels and e.label not in labels:
+                continue
+
+            if need_out:
+                result.add(e.node_to)
             else:
-                group2.add(e.node_to)
-        return group1, group2
+                result.add(e.node_from)
+
+        return result
 
     def get_definitions(self):
         defs = []

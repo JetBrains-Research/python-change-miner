@@ -189,7 +189,7 @@ class Miner:
                 logger.error(f'Unable to print fragment {fragment.id} for pattern {pattern.id}, '
                              f'commit=#{fragment.graph.repo_info.commit_hash}, '
                              f'file={fragment.graph.repo_info.old_method.file_path}, '
-                             f'method={fragment.graph.old_method.full_name}', exc_info=True)
+                             f'method={fragment.graph.repo_info.old_method.full_name}', exc_info=True)
 
     @classmethod
     def _print_fragment(cls, pattern, out_dir, fragment):

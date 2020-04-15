@@ -142,11 +142,11 @@ class Fragment:
     def get_label_to_ext_list(self):
         adjacent_nodes = []
         for node in self.nodes:
-            for in_node in node.get_in_nodes():
+            for in_node in node.get_in_nodes(excluded_labels=[LinkType.MAP]):
                 if in_node not in self.nodes:
                     adjacent_nodes.append(in_node)
 
-            for out_node in node.get_out_nodes():
+            for out_node in node.get_out_nodes(excluded_labels=[LinkType.MAP]):
                 if out_node not in self.nodes:
                     adjacent_nodes.append(out_node)
 
@@ -158,7 +158,7 @@ class Fragment:
                 else:
                     defs = node.get_definitions()
                     if not defs:
-                        _, non_refs = node.get_out_node_groups(LinkType.REFERENCE)
+                        non_refs = node.get_out_nodes(excluded_labels=[LinkType.REFERENCE, LinkType.MAP])
                         if non_refs.intersection(set(self.nodes)):
                             self._add_extension(label_to_extensions, node)
                         else:
@@ -207,8 +207,8 @@ class Fragment:
         s.add(tpl)
 
     def _magic_extension_processor(self, label_to_exts, node):  # FIXME: rename, find out in article info
-        in_nodes = node.get_in_nodes()
-        out_nodes = node.get_out_nodes()
+        in_nodes = node.get_in_nodes(excluded_labels=[LinkType.MAP])
+        out_nodes = node.get_out_nodes(excluded_labels=[LinkType.MAP])
         in_nodes.discard(node.mapped)
         out_nodes.discard(node.mapped)
 
@@ -370,8 +370,8 @@ class Pattern:
             for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
                 new_nodes.append(extended_pattern.repr.nodes[ix])
 
-            logger.info(f'Pattern {[node.label for node in self.repr.nodes]} was extended with '
-                        f'labels {[node.label for node in new_nodes]}, '
+            logger.info(f'Pattern {[node for node in self.repr.nodes]} '
+                        f'was extended with {[node for node in new_nodes]}, '
                         f'new size={extended_pattern.size}, '
                         f'fragments cnt={len(extended_pattern.fragments)}, '
                         f'iteration = {iteration}')
