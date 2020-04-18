@@ -18,7 +18,7 @@ def main():
     visited_repo_cnt = 0
 
     while True:
-        if visited_repo_cnt > _REPO_CNT:
+        if visited_repo_cnt >= _REPO_CNT:
             break
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
@@ -37,7 +37,7 @@ def main():
             logging.warning(f'Visited: {item["full_name"]}')
 
             visited_repo_cnt += 1
-            if visited_repo_cnt > _REPO_CNT:
+            if visited_repo_cnt >= _REPO_CNT:
                 break
 
         page_num += 1
