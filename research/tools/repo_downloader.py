@@ -3,6 +3,7 @@ import requests
 import os
 import logging
 import subprocess
+import re
 
 
 _GITHUB_BASE_URL = 'https://api.github.com'
@@ -30,7 +31,9 @@ def main():
 
         for item in items:
             url = item['clone_url']
-            args = ['git', '-C', _REPO_DIR, 'clone', url]
+            repo_name = re.sub('/', '---', item['full_name'])
+
+            args = ['git', 'clone', url, os.path.join(_REPO_DIR, repo_name)]
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
 
