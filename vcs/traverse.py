@@ -22,8 +22,8 @@ class GitAnalyzer:
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
     STORAGE_DIR = settings.get('change_graphs_storage_dir')
     STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
-    MIN_DATE = pytz.UTC.localize(datetime.strptime(settings.get('traverse_min_date'), '%d.%m.%Y')) \
-        if settings.get('traverse_min_date') else None
+    MIN_DATE = pytz.UTC.localize(datetime.strptime(settings.get('traverse_min_date', required=False), '%d.%m.%Y')) \
+        if settings.get('traverse_min_date', required=False) else None
 
     def __init__(self):
         self._data_file_dir = os.path.join(self.GIT_REPOSITORIES_DIR, '.data.json')
