@@ -7,6 +7,8 @@ import multiprocessing
 import time
 import json
 import subprocess
+import pytz
+from datetime import datetime
 
 from log import logger
 from pydriller import RepositoryMining
@@ -20,6 +22,8 @@ class GitAnalyzer:
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
     STORAGE_DIR = settings.get('change_graphs_storage_dir')
     STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
+    MIN_DATE = pytz.UTC.localize(datetime.strptime(settings.get('traverse_min_date'), '%d.%m.%Y')) \
+        if settings.get('traverse_min_date') else None
 
     def __init__(self):
         self._data_file_dir = os.path.join(self.GIT_REPOSITORIES_DIR, '.data.json')
@@ -79,14 +83,21 @@ class GitAnalyzer:
 
         repo_path = os.path.join(self.GIT_REPOSITORIES_DIR, repo_name)
         repo_url = self._get_repo_url(repo_path)
-        repo = RepositoryMining(repo_path)
+        repo = RepositoryMining(repo_path, only_no_merge=True)
 
         commits = []
         for commit in repo.traverse_commits():
             if not commit.parents:
                 continue
 
+            if self.MIN_DATE and commit.committer_date < self.MIN_DATE:
+                continue
+
             cut = {
+                'author': {
+                    'email': commit.author.email,
+                    'name': commit.author.name
+                } if commit.author else None,
                 'num': len(commits)+1,
                 'hash': commit.hash,
                 'msg': commit.msg,
@@ -182,7 +193,9 @@ class GitAnalyzer:
                         commit['repo']['url'],
                         commit['hash'],
                         old_method,
-                        new_method
+                        new_method,
+                        author_email=commit['author']['email'] if commit.get('author') else None,
+                        author_name=commit['author']['name'] if commit.get('author') else None
                     )
 
                     try:
@@ -278,7 +291,8 @@ class Method:
 
 
 class RepoInfo:
-    def __init__(self, repo_name, repo_path, repo_url, commit_hash, old_method, new_method):
+    def __init__(self, repo_name, repo_path, repo_url, commit_hash, old_method, new_method,
+                 author_email=None, author_name=None):
         self.repo_name = repo_name
         self.repo_path = repo_path
         self.repo_url = repo_url
@@ -287,3 +301,6 @@ class RepoInfo:
 
         self.old_method = old_method
         self.new_method = new_method
+
+        self.author_email = author_email
+        self.author_name = author_name

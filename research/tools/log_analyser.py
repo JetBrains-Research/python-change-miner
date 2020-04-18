@@ -61,13 +61,13 @@ def search_file(pattern, from_time=None, excluded_files=None):
 
 
 def plt_items_for_seconds():
-    pattern = 'Groups for (?P<cnt>[0-9]+) fragments created (?P<time>[0-9]+)ms'
+    pattern = 'Gumtree... OK (?P<time>[0-9]+)ms'
     from_time = datetime.datetime(day=16, month=3, year=2020, hour=16, minute=0)
-    results = search_file(pattern, from_time=from_time, excluded_files=['debug2.log'])
+    results = search_file(pattern, from_time=from_time, excluded_files=['miner.log'])
 
     cnt_timer_arr = []
     for result in results:
-        cnt = int(result['matches'].group('cnt'))
+        cnt = 1  # int(result['matches'].group('cnt'))
         tm = int(result['matches'].group('time'))
 
         cnt_timer_arr.append((cnt, tm))
@@ -77,11 +77,11 @@ def plt_items_for_seconds():
     fig = plt.figure()
     axes = fig.gca()
     for cnt, tm in cnt_timer_arr:
-        axes.scatter(cnt, int(tm / 1000), marker='+')
+        axes.scatter(cnt, int(tm), marker='+')
 
     plt.yticks(fontsize=12)
     plt.xticks(fontsize=12, rotation=0)
-    plt.xlabel('Fragments cnt')
+    plt.xlabel('Items cnt')
     plt.ylabel('Time in seconds')
 
     fig.show()
@@ -121,5 +121,5 @@ def print_frequent_items():
 
 
 if __name__ == '__main__':
-    # plt_items_for_seconds()
-    print_frequent_items()
+    plt_items_for_seconds()
+    # print_frequent_items()

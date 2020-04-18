@@ -3,6 +3,7 @@
   "git_repositories_dir": str,
 
   "traverse_file_max_line_count": 1500,
+  "traverse_till_date": str,
 
   "change_graphs_storage_dir": str,
   "change_graphs_store_interval": 300,
@@ -23,5 +24,7 @@
   "stackimpact_agent_key": str,
 
   "research_logs_dir": str,
-  "research_output_dir": str
+  "research_output_dir": str,
+  "research_github_token": str,
+  "research_repo_count": int
 }

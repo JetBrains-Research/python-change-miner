@@ -3,7 +3,6 @@ import subprocess
 from enum import Enum
 
 import settings
-from log import logger
 
 
 def parse(src_path):
@@ -195,10 +194,11 @@ class GumTree:
 
     @staticmethod
     def _are_children_changed(node, /, *, ignore_child_ids=None):
-        for child in node.children:
-            if child.id and child.id in ignore_child_ids:
-                continue
+        children = [child for child in node.children if child.id not in ignore_child_ids]
+        if not children:
+            return False
 
+        for child in children:
             if child.status == GumTreeNode.STATUS.UNCHANGED:
                 return False
         return True

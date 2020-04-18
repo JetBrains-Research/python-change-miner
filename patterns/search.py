@@ -292,6 +292,7 @@ class Miner:
             logger.warning(f'Unable to get source from ast {repo_info.new_method.ast}')
             return None
 
+        author = f'{repo_info.author_email} {repo_info.author_name}' if repo_info.author_email else 'unknown'
         sample = f'<html lang="en">\n' \
                  f'<head>\n' \
                  f'<title>Sample {sample_id}</title>\n' \
@@ -305,6 +306,7 @@ class Miner:
                  f'<body>\n' \
                  f'<div id="repo">' \
                  f'<div><a href="details.html">Details</a></div><br>\n' \
+                 f'Author: {author}<br>\n' \
                  f'Repository: {repo_info.repo_name}<br>\n' \
                  f'File (old): {repo_info.old_method.file_path}\n' \
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \
