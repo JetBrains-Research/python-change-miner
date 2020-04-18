@@ -28,6 +28,6 @@
 
   "research_repo_dir": str,
   "research_repo_count": int,
-  "research_repo_query_string": "language:python"
-  "research_github_token": str,
+  "research_repo_query_string": "language:python",
+  "research_github_token": str
 }
