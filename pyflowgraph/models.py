@@ -432,8 +432,6 @@ class ExtControlFlowGraph:
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
-                logger.info(f'fg node {node} is mapped to gt node {found}', show_pid=True)
-
                 node.gt_node = found
                 found.fg_node = node
             else:

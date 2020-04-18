@@ -54,6 +54,7 @@ class GumTree:
         SIMPLE_ARGS = 'args'
         DEFAULT_ARGS = 'defaults'
         SIMPLE_ARG = 'arg'
+        KEYWORD = 'keyword'
 
     def __init__(self, source_path, data):
         self.node_id_to_node = {}
@@ -154,8 +155,15 @@ class GumTree:
 
     @classmethod
     def _adjust_changes(cls, gt_src, gt_dest):
-        gt_src.dfs(fn_after=cls._change_detector)
-        gt_dest.dfs(fn_after=cls._change_detector)
+        gt_src.dfs(fn_before=cls._before_change_detector, fn_after=cls._change_detector)
+        gt_dest.dfs(fn_before=cls._before_change_detector, fn_after=cls._change_detector)
+
+    @classmethod
+    def _before_change_detector(cls, node):
+        parent = node.parent
+        if parent and parent.status == GumTreeNode.STATUS.MOVED and parent.type_label in [GumTree.TypeLabel.KEYWORD]:
+            node.status = GumTreeNode.STATUS.MOVED
+        return True
 
     @classmethod
     def _change_detector(cls, node):
@@ -188,7 +196,7 @@ class GumTree:
     @staticmethod
     def _are_children_changed(node, /, *, ignore_child_ids=None):
         for child in node.children:
-            if child.id and child.type_label in ignore_child_ids:
+            if child.id and child.id in ignore_child_ids:
                 continue
 
             if child.status == GumTreeNode.STATUS.UNCHANGED:

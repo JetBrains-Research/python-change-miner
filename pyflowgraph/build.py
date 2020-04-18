@@ -1,5 +1,6 @@
 import ast
 import copy
+import html
 from typing import Dict, Set
 
 from asttokens import asttokens
@@ -485,17 +486,23 @@ class ASTVisitor(ast.NodeVisitor):
         return self.visit(node.value)
 
     # Visit literals, variables and collections
+    @staticmethod
+    def _clear_literal_label(label):
+        label = str(label).encode('unicode_escape').decode()
+        label = html.escape(label[:24])
+        return label
+
     def visit_Str(self, node):
-        return self.create_graph(node=DataNode(node.s, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.s), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Num(self, node):
-        return self.create_graph(node=DataNode(node.n, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.n), node, kind=DataNode.Kind.LITERAL))
 
     def visit_NameConstant(self, node):
-        return self.create_graph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Constant(self, node):
-        return self.create_graph(node=DataNode(node.value, node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Pass(self, node):
         return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))

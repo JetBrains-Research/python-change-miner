@@ -386,8 +386,11 @@ class Pattern:
             for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
                 new_nodes.append(extended_pattern.repr.nodes[ix])
 
-            logger.info(f'Pattern {[node for node in self.repr.nodes]} '
-                        f'was extended with {[node for node in new_nodes]}, '
+            old_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in self.repr.nodes]) + '\n'
+            new_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in new_nodes]) + '\n'
+
+            logger.info(f'Pattern with old nodes: {old_nodes_s}'
+                        f'was extended with new nodes: {new_nodes_s}'
                         f'new size={extended_pattern.size}, '
                         f'fragments cnt={len(extended_pattern.fragments)}, '
                         f'iteration = {iteration}')
