@@ -10,6 +10,7 @@ import settings
 _GITHUB_BASE_URL = 'https://api.github.com'
 _REPO_DIR = settings.get('research_repo_dir', os.getcwd())
 _REPO_CNT = settings.get('research_repo_count', 10)
+_QUERY_STRING = settings.get('research_repo_query_string')
 _TOKEN = settings.get('research_github_token')
 
 
@@ -25,7 +26,7 @@ def main():
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
         r = requests.get(f'{_GITHUB_BASE_URL}/search/repositories?'
-                         f'q=language:python&sort=stars&order=desc&page={page_num}&per_page=100',
+                         f'q={_QUERY_STRING}&page={page_num}&per_page=100',
                          headers=headers)
         data = r.json()
         items = data['items']
