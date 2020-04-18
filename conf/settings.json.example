@@ -8,7 +8,7 @@
   "change_graphs_store_interval": 300,
 
   "patterns_output_dir": str,
-  "patterns_min_frequency": 5,
+  "patterns_min_frequency": 3,
   "patterns_max_frequency": 1000,
   "patterns_async_mining": true,
   "patterns_full_print": false,

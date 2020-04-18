@@ -212,7 +212,7 @@ class Miner:
         if not cls.FULL_PRINT:
             inner += f'<div><a href="sample.html">Sample</a></div>\n' \
                      f'<div><a target="_blank" href="fragment.dot.pdf">Fragment</a></div>\n' \
-                     f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div>\n'
+                     f'<div><a target="_blank" href="graph.dot.pdf">Change graph</a></div><br>\n'
 
         instance_separator = '<br>\n\n'
         details = f'<html lang="en">\n' \
@@ -223,7 +223,7 @@ class Miner:
                   f'<body>\n' \
                   f'<a href="../contents.html">...</a><br><br>\n' \
                   f'<div>Frequency: {pattern.freq}</div><br>\n' \
-                  f'{inner}<br>\n' \
+                  f'{inner}\n' \
                   f'<h2>Instances:</h2>\n' \
                   f'{instance_separator.join(instances)}' \
                   f'</body>\n' \
@@ -295,7 +295,9 @@ class Miner:
         sample = f'<html lang="en">\n' \
                  f'<head>\n' \
                  f'<title>Sample {sample_id}</title>\n' \
+                 f'<link rel="stylesheet" href="../../../libs/highlight/default.css">\n' \
                  f'<link rel="stylesheet" href="../../../styles.css">\n' \
+                 f'<script type="text/javascript" src="../../../libs/highlight/highlight.pack.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../libs/jquery.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../libs/underscore.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../sample.js"></script>\n' \
@@ -323,7 +325,7 @@ class Miner:
     def _generate_pre_html(cls, fragment, repo_info, src, version):
         method = repo_info.old_method if version == ChangeNode.Version.BEFORE_CHANGES else repo_info.new_method
 
-        return f'<pre class="code" ' \
+        return f'<pre class="code language-python" ' \
                f'data-base-line-url="{cls._get_base_line_url(repo_info, version)}" ' \
                f'data-line-number="{method.ast.lineno}">\n' \
                f'{cls._get_markup(fragment, src, version)}' \

@@ -66,6 +66,22 @@ class Fragment:
         return len(self.nodes)
 
     @classmethod
+    def create_from_node(cls, node):
+        f = Fragment()
+        f.nodes.append(node)
+        f.graph = node.graph
+
+        f.id_sum = node.id
+
+        f.__init_vector(node)
+
+        return f
+
+    def __init_vector(self, node):
+        exas_feature = ExasFeature(nodes=[node])
+        self.vector.add_feature(exas_feature.get_id_by_label(node.label))
+
+    @classmethod
     def create_from_node_pair(cls, pair):
         f = Fragment()
         f.nodes.append(pair[0])

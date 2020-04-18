@@ -15,6 +15,8 @@ $(document).ready(function() {
     }
 
     $('pre.code').each(function() {
+        hljs.highlightBlock(this);
+
         const code = $(this);
         const baseLineURL = code.attr('data-base-line-url') || '#';
         const startLineNumber = parseInt(code.attr('data-line-number') || 1);
