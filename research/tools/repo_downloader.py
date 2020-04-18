@@ -30,7 +30,7 @@ def main():
 
         for item in items:
             url = item['clone_url']
-            args = ['git', 'clone', url]
+            args = ['git', '-C', _REPO_DIR, 'clone', url]
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
 
