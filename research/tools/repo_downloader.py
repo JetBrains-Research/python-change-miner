@@ -1,9 +1,10 @@
-import settings
 import requests
 import os
 import logging
 import subprocess
 import re
+
+import settings
 
 
 _GITHUB_BASE_URL = 'https://api.github.com'
@@ -16,10 +17,10 @@ def main():
     logging.warning('Starting')
 
     page_num = 1
-    visited_repo_cnt = 0
+    visited_repo_cnt = 1
 
     while True:
-        if visited_repo_cnt >= _REPO_CNT:
+        if visited_repo_cnt > _REPO_CNT:
             break
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
@@ -37,10 +38,10 @@ def main():
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
 
-            logging.warning(f'Visited: {item["full_name"]}')
+            logging.warning(f'Visited repo={repo_name} [{visited_repo_cnt}/{_REPO_CNT}]')
 
             visited_repo_cnt += 1
-            if visited_repo_cnt >= _REPO_CNT:
+            if visited_repo_cnt > _REPO_CNT:
                 break
 
         page_num += 1
