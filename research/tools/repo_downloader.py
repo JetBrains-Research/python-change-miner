@@ -11,7 +11,7 @@ _GITHUB_BASE_URL = 'https://api.github.com'
 _REPO_DIR = settings.get('research_repo_dir', os.getcwd())
 _REPO_CNT = settings.get('research_repo_count', 10)
 _QUERY_STRING = settings.get('research_repo_query_string')
-_TOKEN = settings.get('research_github_token')
+_TOKEN = settings.get('research_github_token', required=False)
 
 
 def main():

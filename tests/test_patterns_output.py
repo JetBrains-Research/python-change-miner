@@ -12,7 +12,7 @@ def test_merge_intervals():
         [732, 737], [925, 928], [776, 781]
     ]
 
-    result = patterns.search.Miner._merge_intervals(intervals)
+    result = patterns.search.Miner.merge_intervals(intervals)
     assert result == [[80, 226], [721, 918], [925, 928]]
 
 

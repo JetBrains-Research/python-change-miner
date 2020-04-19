@@ -123,10 +123,10 @@ class ChangeNode:  # todo: base class for pfg and cg
         return result
 
     def get_definitions(self):
-        defs = []
+        defs = set()
         for e in self.in_edges:
             if isinstance(e, ChangeEdge) and e.label == LinkType.REFERENCE:
-                defs.append(e.node_from)
+                defs.add(e.node_from)
         return defs
 
     def set_graph(self, graph):

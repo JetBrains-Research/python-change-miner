@@ -54,10 +54,10 @@ class Node:
         self._data = {}
 
     def get_definitions(self):
-        defs = []
+        defs = set()
         for e in self.in_edges:
             if isinstance(e, DataEdge) and e.label == LinkType.REFERENCE:
-                defs.append(e.node_from)
+                defs.add(e.node_from)
         return defs
 
     def create_edge(self, node_to, link_type):
@@ -466,20 +466,22 @@ class ExtControlFlowGraph:
 
             fg_src_node.create_edge(fg_dest_node, LinkType.MAP)
 
+    def _get_transitive_change_nodes(self):
+        result = set()
+        for node in self.changed_nodes:
+            refs = node.get_outgoing_nodes(label=LinkType.REFERENCE)
+            for ref in refs:
+                out_nodes = ref.get_outgoing_nodes()
+                for out_node in out_nodes:
+                    if out_node in self.changed_nodes and node.gt_node.is_changed():
+                        result.add(ref)
+                        break
+        return result
+
     @staticmethod
     def _get_node_dependencies(node):
         result = node.get_definitions()
-
-        # todo: unreliable
-        # if isinstance(node, OperationNode):
-        #     for in_node in node.get_incoming_nodes(label=LinkType.PARAMETER):
-        #         if not isinstance(in_node, DataNode):
-        #             continue
-        #
-        #         result += in_node.get_definitions()
-        #         result.append(in_node)
-
-        return set(result)
+        return result
 
     def calc_changed_nodes_by_gumtree(self):
         self.changed_nodes.clear()
@@ -496,6 +498,8 @@ class ExtControlFlowGraph:
 
                 deps = self._get_node_dependencies(node)
                 self.changed_nodes = self.changed_nodes.union(deps)
+
+        self.changed_nodes = self.changed_nodes.union(self._get_transitive_change_nodes())
 
     def find_node_by_label(self, label):
         for node in self.nodes:

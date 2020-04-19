@@ -1,6 +1,5 @@
-from changegraph.visual import export_graph_image
 from changegraph.models import ChangeGraph, ChangeNode, ChangeEdge
-from patterns.models import Fragment, CharacteristicVector, Pattern
+from patterns.models import Fragment, Pattern
 from pyflowgraph.models import LinkType
 
 
@@ -47,7 +46,7 @@ def test_fragment_label_to_ext_list():
 
     ChangeEdge.create(LinkType.MAP, cn1, c2n1)          # getZoneByName -> get_fw_zone_settings
     ChangeEdge.create(LinkType.MAP, cn2, c2n2)          # = -> =
-    ChangeEdge.create(LinkType.MAP, cn7, c2n6)           # update -> update_fw_settings
+    ChangeEdge.create(LinkType.MAP, cn7, c2n6)          # update -> update_fw_settings
     cn1.mapped = c2n1
     c2n1.mapped = cn1
     cn2.mapped = c2n2
@@ -92,10 +91,10 @@ def _get_freq_group(fr):
 
     label_to_ext_list = fr.get_label_to_ext_list()
     for label, ext_list in label_to_ext_list.items():
-        ext_fragments = []
+        ext_fragments = set()
         for ext in ext_list:
             ext_fr = Fragment.create_extended(fr, ext)
-            ext_fragments.append(ext_fr)
+            ext_fragments.add(ext_fr)
 
             groups = Fragment.create_groups(ext_fragments)
             for num, group in enumerate(groups):

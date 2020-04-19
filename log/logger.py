@@ -13,8 +13,8 @@ class CustomLogger:
     DEBUG = logging.DEBUG
 
     FILE_PATH = settings.get('logger_file_path', 'app.log')
-    FILE_LOG_LEVEL = getattr(logging, settings.get('logger_file_log_level', 'DEBUG'))
-    STDOUT_LOG_LEVEL = getattr(logging, settings.get('logger_stdout_log_level', 'WARNING'))
+    FILE_LOG_LEVEL = getattr(logging, settings.get('logger_file_log_level', 'INFO').upper())
+    STDOUT_LOG_LEVEL = getattr(logging, settings.get('logger_stdout_log_level', 'WARNING').upper())
 
     def __init__(self):
         self._logger = None

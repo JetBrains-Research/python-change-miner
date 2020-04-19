@@ -80,7 +80,7 @@ class GraphBuilder:
 
             in_nodes = edge.node_from.get_definitions()
             if not in_nodes:
-                in_nodes.append(edge.node_from)
+                in_nodes.add(edge.node_from)
             else:
                 for in_node in in_nodes:
                     if not node.has_in_edge(in_node, edge.label):
@@ -383,6 +383,9 @@ class ASTVisitorHelper:
         g = self.create_graph()
         op_node = OperationNode(OperationNode.Label.ASSIGN, node, self.visitor.control_branch_stack,
                                 kind=OperationNode.Kind.ASSIGN)
+        syntax_left = max([t.last_token.endpos for t in node.targets])
+        syntax_right = node.value.first_token.startpos
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[syntax_left, syntax_right]])
 
         fgs = []
         assigned_nodes = []
@@ -810,9 +813,13 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_Compare(self, node):
         g = None
         last_fg = self.visit(node.left)
+        last_ast = node.left
         for i, cmp in enumerate(node.comparators):
             op_node = OperationNode(node.ops[i].__class__.__name__, node, self.control_branch_stack,
                                     kind=OperationNode.Kind.COMPARE)
+            syntax_left = last_ast.last_token.endpos
+            syntax_right = cmp.first_token.startpos
+            op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[syntax_left, syntax_right]])
             right_fg = self.visit(cmp)
 
             last_fg.add_node(op_node, link_type=LinkType.PARAMETER)
@@ -823,6 +830,7 @@ class ASTVisitor(ast.NodeVisitor):
             g.parallel_merge_graphs(fgs)
 
             last_fg = g
+            last_ast = cmp
         return g
 
 

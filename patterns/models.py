@@ -156,15 +156,15 @@ class Fragment:
                     del sequence[-1]
 
     def get_label_to_ext_list(self):
-        adjacent_nodes = []
+        adjacent_nodes = set()
         for node in self.nodes:
             for in_node in node.get_in_nodes(excluded_labels=[LinkType.MAP]):
                 if in_node not in self.nodes:
-                    adjacent_nodes.append(in_node)
+                    adjacent_nodes.add(in_node)
 
             for out_node in node.get_out_nodes(excluded_labels=[LinkType.MAP]):
                 if out_node not in self.nodes:
-                    adjacent_nodes.append(out_node)
+                    adjacent_nodes.add(out_node)
 
         label_to_extensions: Dict[str, Set[Tuple]] = {}
         for node in adjacent_nodes:
@@ -225,8 +225,6 @@ class Fragment:
     def _magic_extension_processor(self, label_to_exts, node):  # FIXME: rename, find out in article info
         in_nodes = node.get_in_nodes(excluded_labels=[LinkType.MAP])
         out_nodes = node.get_out_nodes(excluded_labels=[LinkType.MAP])
-        in_nodes.discard(node.mapped)
-        out_nodes.discard(node.mapped)
 
         if in_nodes and out_nodes:
             found = False
@@ -238,7 +236,7 @@ class Fragment:
             if found:
                 found = False
                 for n in out_nodes:
-                    if n.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL and n in self.nodes:
+                    if n in self.nodes:
                         found = True
                         break
 
@@ -246,8 +244,7 @@ class Fragment:
                     self._add_extension(label_to_exts, node)
                 else:
                     for next_node in out_nodes:
-                        if next_node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
-                            self._add_extension_chain(label_to_exts, node, next_node)
+                        self._add_extension_chain(label_to_exts, node, next_node)
             else:
                 for next_node in in_nodes:
                     self._add_extension_chain(label_to_exts, node, next_node)
@@ -375,7 +372,8 @@ class Pattern:
             k: v for k, v in label_to_fragment_to_ext_list.items()
             if len(v) >= self.MIN_FREQUENCY
         }
-        logger.warning(f'Dict label_to_fragment_to_ext_list was constructed', start_time=start_time)
+        logger.warning(f'Dict label_to_fragment_to_ext_list with '
+                       f'{len(label_to_fragment_to_ext_list.items())} items was constructed', start_time=start_time)
 
         freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
@@ -396,12 +394,15 @@ class Pattern:
                         f'iteration = {iteration}')
 
             return extended_pattern.extend(iteration=iteration+1)
-        elif self.is_change():
-            logger.log(logger.WARNING, f'Done extend() for a pattern with success')
+        else:
+            logger.log(logger.WARNING, f'Done extend() for a pattern')
             return self
 
     def _get_most_freq_group_and_freq(self, label_to_fragment_to_ext_list):
         logger.warning(f'Processing label_to_fragment_to_ext_list to get the most freq group')
+        if not label_to_fragment_to_ext_list:
+            return None, -1
+
         start_time = time.time()
 
         freq_group: Set[Fragment] = set()

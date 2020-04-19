@@ -68,7 +68,7 @@ class Miner:
             pattern = Pattern(fragments, len(fragments))
             pattern = pattern.extend()
 
-            if pattern and pattern.size > self.MIN_PATTERN_SIZE:
+            if pattern.is_change() and pattern.size > self.MIN_PATTERN_SIZE:
                 self.add_pattern(pattern)
                 logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
 
@@ -111,6 +111,10 @@ class Miner:
 
                     if found:
                         break
+
+        for k, v in self._size_to_patterns.items():
+            if not v:
+                self._size_to_patterns.pop(k)
 
     def print_patterns(self):  # todo: arrange patterns by their frequency
         if not self._size_to_patterns:
@@ -366,7 +370,7 @@ class Miner:
                 end = node.ast.last_token.endpos
             pattern_intervals.append([start, end])
 
-        pattern_intervals = cls._merge_intervals(pattern_intervals)
+        pattern_intervals = cls.merge_intervals(pattern_intervals)
 
         markup = src
         offset = 0
@@ -422,7 +426,7 @@ class Miner:
         return chunk, offset
 
     @staticmethod
-    def _merge_intervals(intervals):
+    def merge_intervals(intervals):
         new_intervals = []
         last_interval = None
 

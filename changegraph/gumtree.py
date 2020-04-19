@@ -160,8 +160,9 @@ class GumTree:
     @classmethod
     def _before_change_detector(cls, node):
         parent = node.parent
-        if parent and parent.status == GumTreeNode.STATUS.MOVED and parent.type_label in [GumTree.TypeLabel.KEYWORD]:
-            node.status = GumTreeNode.STATUS.MOVED
+        if parent:
+            if parent.type_label in [GumTree.TypeLabel.KEYWORD] and parent.status == GumTreeNode.STATUS.MOVED:
+                node.status = GumTreeNode.STATUS.MOVED
         return True
 
     @classmethod
