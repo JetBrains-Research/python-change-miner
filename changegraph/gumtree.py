@@ -159,15 +159,15 @@ class GumTree:
 
     @classmethod
     def _before_change_detector(cls, node):
-        parent = node.parent
-        if parent:
-            if parent.type_label in [GumTree.TypeLabel.KEYWORD] and parent.status == GumTreeNode.STATUS.MOVED:
-                node.status = GumTreeNode.STATUS.MOVED
+        # parent = node.parent
+        # if parent:
+        #     if parent.type_label in [GumTree.TypeLabel.KEYWORD] and parent.status == GumTreeNode.STATUS.MOVED:
+        #         node.status = GumTreeNode.STATUS.MOVED
         return True
 
     @classmethod
     def _change_detector(cls, node):
-        if node.status in [GumTreeNode.STATUS.MOVED, GumTreeNode.STATUS.INSERTED, GumTreeNode.STATUS.DELETED]:
+        if node.status in [GumTreeNode.STATUS.INSERTED, GumTreeNode.STATUS.DELETED]:
             return True
 
         is_changed = not node.mapped or not node.is_equal(node.mapped)

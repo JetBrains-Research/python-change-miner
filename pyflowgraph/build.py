@@ -433,6 +433,9 @@ class ASTVisitor(ast.NodeVisitor):
 
         op_node = OperationNode(node.__class__.__name__, node, self.control_branch_stack,
                                 kind=OperationNode.Kind.COLLECTION)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.startpos, node.first_token.endpos], [node.last_token.startpos, node.last_token.endpos]
+        ])
         fg.add_node(op_node, link_type=LinkType.PARAMETER)
         return fg
 
@@ -511,7 +514,10 @@ class ASTVisitor(ast.NodeVisitor):
         return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
 
     def visit_Lambda(self, node):
-        return self.create_graph(node=DataNode(OperationNode.Label.LAMBDA, node))
+        lambda_node = DataNode(OperationNode.Label.LAMBDA, node)
+        lambda_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[
+            node.first_token.startpos, node.first_token.endpos]])
+        return self.create_graph(node=lambda_node)
 
     # Visit collections
     def visit_List(self, node):
