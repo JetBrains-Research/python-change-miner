@@ -112,7 +112,7 @@ class Miner:
                     if found:
                         break
 
-        for k, v in self._size_to_patterns.items():
+        for k, v in copy.copy(self._size_to_patterns.items()):
             if not v:
                 self._size_to_patterns.pop(k)
 
