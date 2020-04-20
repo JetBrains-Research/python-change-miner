@@ -90,6 +90,7 @@ class Miner:
 
     def _filter_patterns(self):
         keys = sorted(self._size_to_patterns.keys())
+        cleared_keys = set()
 
         for size1 in keys:
             patterns = self._size_to_patterns[size1]
@@ -106,15 +107,16 @@ class Miner:
                         if pattern2 != pattern1 and pattern2.contains(pattern1):
                             patterns.remove(pattern1)
                             self._patterns_cnt -= 1
+                            if not patterns:
+                                cleared_keys.add(size1)
                             found = True
                             break
 
                     if found:
                         break
 
-        for k, v in copy.copy(self._size_to_patterns.items()):
-            if not v:
-                self._size_to_patterns.pop(k)
+        for k in cleared_keys:
+            self._size_to_patterns.pop(k)
 
     def print_patterns(self):  # todo: arrange patterns by their frequency
         if not self._size_to_patterns:
