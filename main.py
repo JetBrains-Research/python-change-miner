@@ -51,11 +51,14 @@ def main():
         parser.add_argument('-o', '--output', help='Path to output file', type=str, default='pyflowgraph.dot')
         parser.add_argument('--no-closure', action='store_true')
         parser.add_argument('--show-deps', action='store_true')
+        parser.add_argument('--hide-op-kinds', action='store_true')
+        parser.add_argument('--show-data-keys', action='store_true')
         args = parser.parse_args()
 
         fg = pyflowgraph.build_from_file(
             args.input, show_dependencies=args.show_deps, build_closure=not args.no_closure)
-        pyflowgraph.export_graph_image(fg, args.output)
+        pyflowgraph.export_graph_image(
+            fg, args.output, show_op_kinds=not args.hide_op_kinds, show_data_keys=args.show_data_keys)
     elif current_mode == RunModes.BUILD_CHANGE_GRAPH:
         parser.add_argument('-s', '--src', help='Path to source code before changes', type=str, required=True)
         parser.add_argument('-d', '--dest', help='Path to source code after changes', type=str, required=True)

@@ -290,7 +290,11 @@ class ExtControlFlowGraph:
                 resolved_refs.add(ref_node)
         return resolved_refs
 
-    def merge_graph(self, graph):
+    def merge_graph(self, graph, /, *, link_node=None, link_type=None):
+        if link_node and link_type:
+            for sink in self.sinks:
+                sink.create_edge(link_node, link_type)
+
         self.nodes = self.nodes.union(graph.nodes)
         self.op_nodes = self.op_nodes.union(graph.op_nodes)
 
@@ -335,7 +339,7 @@ class ExtControlFlowGraph:
             self.statement_sinks = self.statement_sinks.union(graph.statement_sinks)
             # self.statement_sources = self.statement_sources.union(graph.statement_sources)
 
-    def add_node(self, node: Node, /, *, link_type=None):
+    def add_node(self, node: Node, /, *, link_type=None, clear_sinks=False):
         if link_type:
             for sink in self.sinks:
                 sink.create_edge(node, link_type)
@@ -344,7 +348,9 @@ class ExtControlFlowGraph:
             if link_type != LinkType.DEFINITION:
                 self.var_refs.add(node)
 
-        # self.sinks.clear()
+        if clear_sinks:
+            self.sinks.clear()
+
         self.sinks.add(node)
         self.nodes.add(node)
 
@@ -385,6 +391,7 @@ class ExtControlFlowGraph:
         self.nodes.add(entry_node)
 
     def map_to_gumtree(self, gt):
+        logger.info('Trying to stick pfg to gumtree')
         self.gumtree = gt
 
         with open(gt.source_path, 'r+') as f:
@@ -432,6 +439,9 @@ class ExtControlFlowGraph:
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
+                logger.info(f'FG node {node} is mapped to {found}, '
+                            f'status={found.status}, is_changed={found.is_changed()}')
+
                 node.gt_node = found
                 found.fg_node = node
             else:

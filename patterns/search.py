@@ -363,13 +363,8 @@ class Miner:
                     pattern_intervals.append(interval)
                 continue
 
-            # todo: resolve if-else in other place?
-            if node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
-                start = node.ast.func.first_token.startpos
-                end = node.ast.func.last_token.endpos
-            else:
-                start = node.ast.first_token.startpos
-                end = node.ast.last_token.endpos
+            start = node.ast.first_token.startpos
+            end = node.ast.last_token.endpos
             pattern_intervals.append([start, end])
 
         pattern_intervals = cls.merge_intervals(pattern_intervals)

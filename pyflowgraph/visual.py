@@ -4,12 +4,14 @@ import os
 from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, EntryNode
 
 
-def _get_label_and_attrs(node, show_op_kind=True):
+def _get_label_and_attrs(node, show_op_kind=True, show_data_keys=False):
     label = f'{node.label}'
     attrs = {}
 
     if isinstance(node, DataNode):
         attrs['shape'] = 'ellipse'
+        if show_data_keys:
+            label = f'{label} #{node.key}'
         if show_op_kind:
             label = f'{label} <{node.kind}>'
     elif isinstance(node, OperationNode):
@@ -23,8 +25,8 @@ def _get_label_and_attrs(node, show_op_kind=True):
     return label, attrs
 
 
-def _convert_to_visual_graph(
-        graph: ExtControlFlowGraph, file_name: str, show_op_kind=True, show_control_branch=False, separate_mapped=True):
+def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str,
+                             show_op_kinds=True, show_data_keys=False, show_control_branch=False, separate_mapped=True):
 
     vg = gv.Digraph(name=file_name, format='pdf')
 
@@ -34,8 +36,9 @@ def _convert_to_visual_graph(
             continue
 
         if separate_mapped and node.mapped:
-            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kind)
-            mapped_label, mapped_attrs = _get_label_and_attrs(node.mapped, show_op_kind=show_op_kind)
+            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kinds, show_data_keys=show_data_keys)
+            mapped_label, mapped_attrs = _get_label_and_attrs(
+                node.mapped, show_op_kind=show_op_kinds, show_data_keys=show_data_keys)
 
             used[node] = used[node.mapped] = True
 
@@ -47,7 +50,7 @@ def _convert_to_visual_graph(
             s.graph_attr.update(rank=rank)
             vg.subgraph(s)
         else:
-            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kind)
+            label, attrs = _get_label_and_attrs(node, show_op_kind=show_op_kinds, show_data_keys=show_data_keys)
             vg.node(f'{node.statement_num}', label=label, _attributes=attrs)
 
     for node in graph.nodes:
@@ -66,7 +69,8 @@ def _convert_to_visual_graph(
     return vg
 
 
-def export_graph_image(graph: ExtControlFlowGraph, path: str = 'pfg.dot'):
+def export_graph_image(graph: ExtControlFlowGraph, path: str = 'pfg.dot', show_op_kinds=True, show_data_keys=False):
     directory, file_name = os.path.split(path)
-    visual_graph = _convert_to_visual_graph(graph, file_name, show_control_branch=True)
+    visual_graph = _convert_to_visual_graph(graph, file_name, show_control_branch=True,
+                                            show_op_kinds=show_op_kinds, show_data_keys=show_data_keys)
     visual_graph.render(path)
