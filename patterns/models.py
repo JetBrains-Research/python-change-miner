@@ -182,8 +182,6 @@ class Fragment:
                         else:
                             for next_node in non_refs:
                                 self._add_extension_chain(label_to_extensions, node, next_node)
-                    else:
-                        self._add_extension(label_to_extensions, node)
             elif node.kind == ChangeNode.Kind.OPERATION_NODE:
                 if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                     self._add_extension(label_to_extensions, node)

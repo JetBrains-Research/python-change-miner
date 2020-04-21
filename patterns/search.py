@@ -7,6 +7,7 @@ import multiprocessing.pool
 import functools
 import copy
 import html
+import json
 
 import settings
 import changegraph
@@ -17,6 +18,8 @@ from patterns.models import Fragment, Pattern
 
 class Miner:
     OUTPUT_DIR = settings.get('patterns_output_dir')
+    OUTPUT_DETAILS = settings.get('patterns_output_details')
+
     FULL_PRINT = settings.get('patterns_full_print', False)
     HIDE_OVERLAPPED_FRAGMENTS = settings.get('patterns_hide_overlapped_fragments', True)
     MIN_PATTERN_SIZE = settings.get('patterns_min_size', 3)
@@ -208,6 +211,37 @@ class Miner:
             with open(os.path.join(out_dir, f'sample{file_suffix}.html'), 'w+') as f:
                 f.write(sample)
 
+            if not cls.OUTPUT_DETAILS:
+                return
+
+            repo_info = fragment.graph.repo_info
+            with open(os.path.join(out_dir, f'sample-details{file_suffix}.json'), 'w+') as f:
+                data = {
+                    'author': {
+                        'email': repo_info.author_email,
+                        'name': repo_info.author_name
+                    },
+                    'repo': {
+                        'name': repo_info.repo_name,
+                        'path': repo_info.repo_path,
+                        'url': repo_info.repo_url
+                    },
+                    'commit': {
+                        'hash': repo_info.commit_hash
+                    },
+                    'methods': {
+                        'old': {
+                            'name': repo_info.old_method.name,
+                            'full_name': repo_info.old_method.full_name
+                        },
+                        'new': {
+                            'name': repo_info.new_method.name,
+                            'full_name': repo_info.new_method.full_name
+                        }
+                    }
+                }
+                json.dump(data, f, indent=4)
+
     @classmethod
     def _generate_html_details(cls, pattern):
         instances = []
@@ -228,7 +262,8 @@ class Miner:
                   f'</head>\n' \
                   f'<body>\n' \
                   f'<a href="../contents.html">...</a><br><br>\n' \
-                  f'<div>Frequency: {pattern.freq}</div><br>\n' \
+                  f'<div>Frequency: {pattern.freq}</div>\n' \
+                  f'<div>Pattern ID: {pattern.id}</div><br>\n' \
                   f'{inner}\n' \
                   f'<h2>Instances:</h2>\n' \
                   f'{instance_separator.join(instances)}' \
@@ -298,7 +333,6 @@ class Miner:
             logger.warning(f'Unable to get source from ast {repo_info.new_method.ast}')
             return None
 
-        author = f'{repo_info.author_email} {repo_info.author_name}' if repo_info.author_email else 'unknown'
         sample = f'<html lang="en">\n' \
                  f'<head>\n' \
                  f'<title>Sample {sample_id}</title>\n' \
@@ -312,7 +346,7 @@ class Miner:
                  f'<body>\n' \
                  f'<div id="repo">' \
                  f'<div><a href="details.html">Details</a></div><br>\n' \
-                 f'Author: {author}<br>\n' \
+                 f'Sample ID: {sample_id}<br>\n' \
                  f'Repository: {repo_info.repo_name}<br>\n' \
                  f'File (old): {repo_info.old_method.file_path}\n' \
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \

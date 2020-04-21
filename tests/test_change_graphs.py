@@ -177,7 +177,7 @@ def test_complex_example2():
         'self.a.b': 0+1,
         'self.a.b.c': 0+1,
         'self.a.b.c.d': 0+1,
-        'self.a.b.c.d.e': 0+2,
+        'self.a.b.c.d.e': 0+1,
         'IsNot': 0+1,
         'if': 0+1,
         'None': 0+1
