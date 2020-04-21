@@ -647,11 +647,6 @@ class ASTVisitor(ast.NodeVisitor):
 
         fg = self.create_graph()
         fg.parallel_merge_graphs(fgs)
-
-        # name = ast_utils.get_node_full_name(node)
-        # slice_node = DataNode(name, node, kind=DataNode.Kind.SLICE)
-        # fg.add_node(slice_node, link_type=LinkType.PARAMETER)
-
         return fg
 
     # Visit operations
