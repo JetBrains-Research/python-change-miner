@@ -44,6 +44,15 @@ def get_node_full_name(node):
         return var_id
     elif isinstance(node, ast.FunctionDef):
         return node.name
+    elif isinstance(node, ast.Subscript):
+        return f'{get_node_full_name(node.value)}[{get_node_full_name(node.slice)}]'
+    elif isinstance(node, ast.Index):
+        return get_node_full_name(node.value)
+    elif isinstance(node, ast.Slice):
+        items = [get_node_full_name(item) for item in [node.lower, node.step, node.upper] if item]
+        return ':'.join(items)
+    elif isinstance(node, ast.Constant):
+        return '.'
     else:
         raise ValueError
 

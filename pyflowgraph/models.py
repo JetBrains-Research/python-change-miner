@@ -101,6 +101,8 @@ class DataNode(Node):
     class Kind:
         VARIABLE_DECL = 'variable-decl'
         VARIABLE_USAGE = 'variable-usage'
+        SUBSCRIPT = 'subscript'
+        SLICE = 'slice'
         LITERAL = 'literal'
         KEYWORD = 'keyword'
         UNDEFINED = 'undefined'
@@ -171,15 +173,15 @@ class OperationNode(StatementNode):
         COLLECTION = 'collection'
         FUNC_CALL = 'func-call'
         ASSIGN = 'assignment'
+        AUG_ASSIGN = 'aug-assignment'
         COMPARE = 'comparision'
         RETURN = 'return'
         RAISE = 'raise'
         BREAK = 'break'
         CONTINUE = 'continue'
-        SUBSCRIPT_SLICE = 'subscript-slice'
-        SUBSCRIPT_INDEX = 'subscript-index'
-
-        DUMMY = 'dummy'
+        UNARY = 'unary'
+        BOOL = 'bool'
+        BINARY = 'binary'
 
         UNCLASSIFIED = 'unclassified'
 

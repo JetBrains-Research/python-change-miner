@@ -357,8 +357,8 @@ class Miner:
             if node.version != version:
                 continue
 
-            intervals = node.get_property(ChangeNode.Property.SYNTAX_TOKEN_INTERVALS, [])
-            if intervals:
+            intervals = node.get_property(ChangeNode.Property.SYNTAX_TOKEN_INTERVALS)
+            if intervals is not None:
                 for interval in intervals:
                     pattern_intervals.append(interval)
                 continue
