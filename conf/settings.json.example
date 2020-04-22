@@ -31,6 +31,7 @@
 
   "research_repo_dir": str,
   "research_repo_count": int,
+  "research_min_stars": int,
   "research_repo_query_string": "language:python",
   "research_github_token": str
 }
