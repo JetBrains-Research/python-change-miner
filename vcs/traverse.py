@@ -7,8 +7,7 @@ import multiprocessing
 import time
 import json
 import subprocess
-import pytz
-from datetime import datetime
+import datetime
 
 from log import logger
 from pydriller import RepositoryMining
@@ -22,8 +21,11 @@ class GitAnalyzer:
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
     STORAGE_DIR = settings.get('change_graphs_storage_dir')
     STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
-    MIN_DATE = pytz.UTC.localize(datetime.strptime(settings.get('traverse_min_date', required=False), '%d.%m.%Y')) \
-        if settings.get('traverse_min_date', required=False) else None
+
+    MIN_DATE = None
+    if settings.get('traverse_min_date', required=False):
+        MIN_DATE = datetime.datetime.strptime(settings.get('traverse_min_date', required=False), '%d.%m.%Y') \
+            .replace(tzinfo=datetime.timezone.utc)
 
     def __init__(self):
         self._data_file_dir = os.path.join(self.GIT_REPOSITORIES_DIR, '.data.json')
@@ -70,10 +72,11 @@ class GitAnalyzer:
                 start = time.time()
                 commits = self._extract_commits(repo_name)
 
-                try:
-                    pool.map(self._get_commit_change_graphs, commits)
-                except:
-                    logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
+                if commits:
+                    try:
+                        pool.map(self._get_commit_change_graphs, commits)
+                    except:
+                        logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
 
                 logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num+1}/{len(repo_names)}]',
                                start_time=start)
@@ -100,6 +103,7 @@ class GitAnalyzer:
                 } if commit.author else None,
                 'num': len(commits)+1,
                 'hash': commit.hash,
+                'dtm': commit.committer_date,
                 'msg': commit.msg,
                 'modifications': [],
                 'repo': {
@@ -192,6 +196,7 @@ class GitAnalyzer:
                         commit['repo']['path'],
                         commit['repo']['url'],
                         commit['hash'],
+                        commit['dtm'],
                         old_method,
                         new_method,
                         author_email=commit['author']['email'] if commit.get('author') else None,
@@ -291,13 +296,14 @@ class Method:
 
 
 class RepoInfo:
-    def __init__(self, repo_name, repo_path, repo_url, commit_hash, old_method, new_method,
+    def __init__(self, repo_name, repo_path, repo_url, commit_hash, commit_dtm, old_method, new_method,
                  author_email=None, author_name=None):
         self.repo_name = repo_name
         self.repo_path = repo_path
         self.repo_url = repo_url
 
         self.commit_hash = commit_hash
+        self.commit_dtm = commit_dtm
 
         self.old_method = old_method
         self.new_method = new_method

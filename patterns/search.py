@@ -8,6 +8,7 @@ import functools
 import copy
 import html
 import json
+import datetime
 
 import settings
 import changegraph
@@ -23,6 +24,11 @@ class Miner:
     FULL_PRINT = settings.get('patterns_full_print', False)
     HIDE_OVERLAPPED_FRAGMENTS = settings.get('patterns_hide_overlapped_fragments', True)
     MIN_PATTERN_SIZE = settings.get('patterns_min_size', 3)
+
+    MIN_DATE = None
+    if settings.get('patterns_min_date', required=False):
+        MIN_DATE = datetime.datetime.strptime(settings.get('patterns_min_date', required=False), '%d.%m.%Y') \
+            .replace(tzinfo=datetime.timezone.utc)
 
     def __init__(self):
         self._size_to_patterns = {}
@@ -47,6 +53,9 @@ class Miner:
 
         label_to_node_pairs = {}
         for graph in graphs:
+            if self.MIN_DATE and graph.repo_info.commit_dtm < self.MIN_DATE:
+                continue
+
             for node in graph.nodes:
                 if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
@@ -227,7 +236,8 @@ class Miner:
                         'url': repo_info.repo_url
                     },
                     'commit': {
-                        'hash': repo_info.commit_hash
+                        'hash': repo_info.commit_hash,
+                        'dtm': repo_info.commit_dtm.strftime('%d.%m.%Y %H:%M:%S')
                     },
                     'methods': {
                         'old': {
@@ -259,11 +269,15 @@ class Miner:
                   f'<head>\n' \
                   f'<title>Details {pattern.id}\n</title>' \
                   f'<link rel="stylesheet" href="../../../styles.css">\n' \
+                  f'<script type="text/javascript" src="../../../libs/jquery.js"></script>\n' \
+                  f'<script type="text/javascript" src="../../../general.js"></script>\n' \
                   f'</head>\n' \
                   f'<body>\n' \
                   f'<a href="../contents.html">...</a><br><br>\n' \
                   f'<div>Frequency: {pattern.freq}</div>\n' \
-                  f'<div>Pattern ID: {pattern.id}</div><br>\n' \
+                  f'Pattern ID: <span data-target="copy">{pattern.id}</span>\n' \
+                  f'<span class="copy-icon" data-action="copy">&#x2398;</span>\n' \
+                  f'<br>\n' \
                   f'{inner}\n' \
                   f'<h2>Instances:</h2>\n' \
                   f'{instance_separator.join(instances)}' \
@@ -341,12 +355,15 @@ class Miner:
                  f'<script type="text/javascript" src="../../../libs/highlight/highlight.pack.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../libs/jquery.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../libs/underscore.js"></script>\n' \
+                 f'<script type="text/javascript" src="../../../general.js"></script>\n' \
                  f'<script type="text/javascript" src="../../../sample.js"></script>\n' \
                  f'</head>\n' \
                  f'<body>\n' \
                  f'<div id="repo">' \
                  f'<div><a href="details.html">Details</a></div><br>\n' \
-                 f'Sample ID: {sample_id}<br>\n' \
+                 f'Sample ID: <span data-target="copy">{sample_id}</span>\n' \
+                 f'<span class="copy-icon" data-action="copy">&#x2398;</span>\n' \
+                 f'<br>\n' \
                  f'Repository: {repo_info.repo_name}<br>\n' \
                  f'File (old): {repo_info.old_method.file_path}\n' \
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \

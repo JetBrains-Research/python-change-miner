@@ -21,7 +21,7 @@ a:hover {
     margin: 4px 0;
 }
 
-#commit_hash, .title {
+#before_code_block .title, #after_code_block .title {
     cursor: pointer;
 }
 
@@ -117,4 +117,8 @@ a:hover {
 .pattern-instance.pattern-repr::before {
     content: 'Representative';
     color: red;
+}
+
+.copy-icon {
+    cursor: pointer;
 }
