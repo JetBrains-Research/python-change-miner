@@ -133,6 +133,7 @@ a:hover {
     -moz-user-select: none;
     -webkit-user-select: none;
     user-select: none;
+    color: #1f7199;
 }
 
 [data-action="visibility"].title:hover {
@@ -147,17 +148,17 @@ a:hover {
 .expand-btn {
     display: none;
     cursor: pointer;
-    color: black;
     width: 1px;
     -ms-user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
     user-select: none;
-    font-size: 12px;
+    font-size: 10px;
+    color: #1f7199;
 }
 
 .expand-btn:hover {
-    transform: scale(1.25);
+    transform: scale(1.5);
 }
 
 .expand-btn[data-kind="top"]::after, .expand-btn[data-kind="bottom"]::after {
