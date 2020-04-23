@@ -51,7 +51,7 @@ $(document).ready(function() {
         codeElement.html(newContent);
     });
     
-    $('.title').click(function () {
+    $('#before_code_block .title, #after_code_block .title').click(function () {
         var code = $('pre.code', $(this).parent());
         selectText(code[0]);
         document.execCommand('copy');
