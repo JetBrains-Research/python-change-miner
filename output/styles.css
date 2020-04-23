@@ -21,7 +21,7 @@ a:hover {
     margin: 4px 0;
 }
 
-#before_code_block {
+#before_code_block, #after_code_block {
     margin-top: 24px;
 }
 
