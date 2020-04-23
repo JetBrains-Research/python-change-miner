@@ -37,7 +37,7 @@ a:hover {
 .code {
     background-color: #f2f2f2;
     border: 1px solid #f2f2f2;
-
+    margin: 0;
     padding: 0;
     opacity: 1;
     cursor: default;
@@ -145,18 +145,27 @@ a:hover {
 }
 
 .expand-btn {
+    display: none;
     cursor: pointer;
     color: black;
-    margin: 4px;
-    display: inline-block;
+    width: 1px;
     -ms-user-select: none;
     -moz-user-select: none;
     -webkit-user-select: none;
     user-select: none;
+    font-size: 12px;
 }
 
 .expand-btn:hover {
     transform: scale(1.25);
+}
+
+.expand-btn[data-kind="top"]::after, .expand-btn[data-kind="bottom"]::after {
+    content: 'expand';
+}
+
+.expand-btn.expanded[data-kind="top"]::after, .expand-btn.expanded[data-kind="bottom"]::after {
+    content: 'minimize';
 }
 
 #after_code_block {

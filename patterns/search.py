@@ -371,11 +371,19 @@ class Miner:
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \
                  f'<div id="before_code_block">\n' \
                  f'<div class="title">Before changes:</div>\n' \
+                 f'<div class="expand-btn" data-action="toggle-expand" data-kind="top" ' \
+                 f'data-code-version="{ChangeNode.Version.BEFORE_CHANGES}"> </div>\n' \
                  f'{cls._generate_pre_html(fragment, repo_info, old_src, ChangeNode.Version.BEFORE_CHANGES)}' \
+                 f'<div class="expand-btn" data-action="toggle-expand" data-kind="bottom" ' \
+                 f'data-code-version="{ChangeNode.Version.BEFORE_CHANGES}"> </div>\n' \
                  f'</div>\n' \
                  f'<div id="after_code_block">\n' \
                  f'<div class="title">After changes:</div>\n' \
+                 f'<div class="expand-btn" data-action="toggle-expand" data-kind="top" ' \
+                 f'data-code-version="{ChangeNode.Version.AFTER_CHANGES}"> </div>\n' \
                  f'{cls._generate_pre_html(fragment, repo_info, new_src, ChangeNode.Version.AFTER_CHANGES)}' \
+                 f'<div class="expand-btn" data-action="toggle-expand" data-kind="bottom" ' \
+                 f'data-code-version="{ChangeNode.Version.AFTER_CHANGES}"> </div>\n' \
                  f'</div>\n' \
                  f'</div>\n' \
                  f'</body>\n' \

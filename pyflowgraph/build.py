@@ -487,14 +487,14 @@ class ASTVisitor(ast.NodeVisitor):
         return self._visit_op(op_name or op.__class__.__name__.lower(), op, op_kind, [left, right])
 
     def _visit_entry_node(self, node):
+        entry_node = EntryNode(node)
+        self.fg.set_entry_node(entry_node)
+        self._switch_control_branch(entry_node, True)
+
         arg_fgs = []
         if isinstance(node, ast.FunctionDef):
             arg_fgs = self._visit_fn_def_arguments(node)
         self.fg.parallel_merge_graphs(arg_fgs)
-
-        entry_node = EntryNode(node)
-        self.fg.set_entry_node(entry_node)
-        self._switch_control_branch(entry_node, True)
 
         for st in node.body:
             try:

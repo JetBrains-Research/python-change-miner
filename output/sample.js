@@ -27,27 +27,39 @@ $(document).ready(function() {
             lines.push(formattedLine);
         });
 
-        var storage = window.jbr_code_changes || {};
-        var key = codeElement.attr('data-code-version');
-        storage[key] = {'original': lines.slice(), 'is_expanded': false};
-
-        var sameLines = true;
-        _.every(lines.slice().reverse(), function (line) {
-            if (!line.includes('<span class="highlighted">')) {
-                lines.pop();
-                sameLines = false;
-                return true;
+        var startHighlighted = null;
+        var endHighlighted = null;
+        _.each(lines.slice(), function (line, index) {
+            if (line.includes('<span class="highlighted">')) {
+                if (startHighlighted === null) {
+                    startHighlighted = index;
+                }
+                endHighlighted = index;
             }
-
-            return false;
         });
 
-        storage[key]['expanded'] = lines;
+        startHighlighted = Math.max(startHighlighted-5, 0);
+        endHighlighted = Math.min(endHighlighted+5, lines.length-1);
+
+        var storage = window.jbr_code_changes || {};
+        var version = codeElement.attr('data-code-version');
+        storage[version] = {
+            'lines': lines,
+            'is_top_expanded': false,
+            'is_bottom_expanded': false,
+            'highlighted_start_line': startHighlighted,
+            'highlighted_end_line': endHighlighted
+        };
         window.jbr_code_changes = storage;
 
-        var newContent = lines.join('');
-        newContent += (sameLines ? '' : '<div class="expand-btn" data-action="toggle-expand">' +
-            '&#8595;&#8595;&#8595;&#8595;&#8595;</div>');
+        if (startHighlighted > 0) {
+            $('[data-action="toggle-expand"][data-kind="top"][data-code-version="' + version + '"]').show();
+        }
+        if (endHighlighted < lines.length - 1) {
+            $('[data-action="toggle-expand"][data-kind="bottom"][data-code-version="' + version + '"]').show();
+        }
+
+        var newContent = lines.slice(startHighlighted, endHighlighted+1).join('');
         codeElement.html(newContent);
     });
     
@@ -67,18 +79,30 @@ $(document).ready(function() {
         selection.addRange(range);
     }
 
-    $('pre.code').on('click', '[data-action="toggle-expand"]', function () {
-        var codeElement = $(this).closest('pre.code');
-        var version = codeElement.attr('data-code-version');
-        var isExpanded = window.jbr_code_changes[version]['is_expanded'];
+    $('[data-action="toggle-expand"]').click(function() {
+        $(this).toggleClass('expanded');
+        var kind = $(this).attr('data-kind');
 
-        var lines = isExpanded ? window.jbr_code_changes[version]['expanded'] : window.jbr_code_changes[version]['original'];
-        var newContent =
-            lines.join('') + '<div class="expand-btn" data-action="toggle-expand">'
-            + (isExpanded ? '&#8595;&#8595;&#8595;&#8595;&#8595' : '&#8593;&#8593;&#8593;&#8593;&#8593;')
-            + '</div>';
+        var version = $(this).attr('data-code-version');
+        var lines =  window.jbr_code_changes[version]['lines'];
 
+        var startLine, endLine;
+        if (kind === 'top') {
+            startLine = window.jbr_code_changes[version]['is_top_expanded']
+                ? window.jbr_code_changes[version]['highlighted_start_line'] : 0;
+            endLine = window.jbr_code_changes[version]['is_bottom_expanded']
+                ? lines.length-1 : window.jbr_code_changes[version]['highlighted_end_line'];
+            window.jbr_code_changes[version]['is_top_expanded'] = !window.jbr_code_changes[version]['is_top_expanded'];
+        } else {
+            startLine = window.jbr_code_changes[version]['is_top_expanded']
+                ? 0 : window.jbr_code_changes[version]['highlighted_start_line'];
+            endLine = window.jbr_code_changes[version]['is_bottom_expanded']
+                ? window.jbr_code_changes[version]['highlighted_end_line'] : lines.length-1;
+            window.jbr_code_changes[version]['is_bottom_expanded'] = !window.jbr_code_changes[version]['is_bottom_expanded'];
+        }
+
+        var codeElement = $('pre.code[data-code-version=' + version + ']');
+        var newContent = lines.slice(startLine, endLine+1).join('');
         codeElement.html(newContent);
-        window.jbr_code_changes[version]['is_expanded'] = !isExpanded;
     });
 });
