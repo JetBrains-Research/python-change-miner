@@ -361,11 +361,13 @@ class Miner:
                  f'<body>\n' \
                  f'<div id="repo">' \
                  f'<div><a href="details.html">Details</a></div><br>\n' \
-                 f'Sample ID: <span data-target="copy">{sample_id}</span>\n' \
+                 f'<span id="sample_id">Sample ID: <span data-target="copy">{sample_id}</span></span>\n' \
                  f'<span class="copy-icon" data-action="copy">&#x2398;</span>\n' \
+                 f'<div><span class="title" data-action="visibility">More info</span>\n' \
+                 f'<div data-target="visibility">\n' \
                  f'<br>\n' \
                  f'Repository: {repo_info.repo_name}<br>\n' \
-                 f'File (old): {repo_info.old_method.file_path}\n' \
+                 f'File (old): {repo_info.old_method.file_path}</div></div>\n' \
                  f'<div id="commit_hash">Commit: {repo_info.commit_hash}</div>\n' \
                  f'<div id="before_code_block">\n' \
                  f'<div class="title">Before changes:</div>\n' \
@@ -386,7 +388,8 @@ class Miner:
 
         return f'<pre class="code language-python" ' \
                f'data-base-line-url="{cls._get_base_line_url(repo_info, version)}" ' \
-               f'data-line-number="{method.ast.lineno}">\n' \
+               f'data-line-number="{method.ast.lineno}" ' \
+               f'data-code-version="{version}">\n' \
                f'{cls._get_markup(fragment, src, version)}' \
                f'</pre>\n'
 

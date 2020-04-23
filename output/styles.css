@@ -21,6 +21,10 @@ a:hover {
     margin: 4px 0;
 }
 
+#before_code_block {
+    margin-top: 24px;
+}
+
 #before_code_block .title, #after_code_block .title {
     cursor: pointer;
 }
@@ -121,4 +125,40 @@ a:hover {
 
 .copy-icon {
     cursor: pointer;
+}
+
+[data-action="visibility"] {
+    cursor: pointer;
+    -ms-user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+[data-action="visibility"].title:hover {
+    text-decoration: underline;
+}
+
+#sample_id {
+    font-weight: bold;
+    color: black;
+}
+
+.expand-btn {
+    cursor: pointer;
+    color: black;
+    margin: 4px;
+    display: inline-block;
+    -ms-user-select: none;
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+.expand-btn:hover {
+    transform: scale(1.25);
+}
+
+#after_code_block {
+    margin-bottom: 32px;
 }
