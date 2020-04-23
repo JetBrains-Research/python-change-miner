@@ -31,7 +31,10 @@ def main():
                          f'q={_QUERY_STRING}&page={page_num}&per_page=100',
                          headers=headers)
         data = r.json()
-        items = data['items']
+        items = data.get('items')
+        if not items:
+            logging.warning(f'No items, response_data={data}')
+            break
 
         for item in items:
             repo_name = re.sub('/', '---', item['full_name'])
