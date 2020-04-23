@@ -21,9 +21,10 @@ def main():
     page_num = 1
     visited_repo_cnt = 1
     stars = _MIN_STARS
+    max_repo_cnt = _REPO_CNT
 
     while True:
-        if visited_repo_cnt > _REPO_CNT or stars < _MIN_STARS:
+        if visited_repo_cnt > max_repo_cnt or stars < _MIN_STARS:
             break
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
@@ -32,6 +33,8 @@ def main():
                          headers=headers)
         data = r.json()
         items = data.get('items')
+        max_repo_cnt = min(max_repo_cnt, data.get('total_count'))
+
         if not items:
             logging.warning(f'No items, response_data={data}')
             break
@@ -50,7 +53,7 @@ def main():
             logging.warning(f'Visited repo={repo_name}, stars={stars} [{visited_repo_cnt}/{_REPO_CNT}]')
 
             visited_repo_cnt += 1
-            if visited_repo_cnt > _REPO_CNT:
+            if visited_repo_cnt > max_repo_cnt:
                 break
 
         page_num += 1
