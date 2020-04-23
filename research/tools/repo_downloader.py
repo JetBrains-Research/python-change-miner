@@ -50,7 +50,7 @@ def main():
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
 
-            logging.warning(f'Visited repo={repo_name}, stars={stars} [{visited_repo_cnt}/{_REPO_CNT}]')
+            logging.warning(f'Visited repo={repo_name}, stars={stars} [{visited_repo_cnt}/{max_repo_cnt}]')
 
             visited_repo_cnt += 1
             if visited_repo_cnt > max_repo_cnt:
