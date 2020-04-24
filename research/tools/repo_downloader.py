@@ -20,6 +20,7 @@ _REPOS_PER_STAR = settings.get('research_repos_per_star', 3)
 _QUERY_LANGUAGE = settings.get('research_query_language', 'python')
 _TOKEN = settings.get('research_github_token', required=False)
 
+
 def main():
     logging.warning('Starting')
 
