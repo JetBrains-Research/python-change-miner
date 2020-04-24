@@ -55,7 +55,7 @@ def main():
                 break
 
             visited_repo_cnt += 1
-            curr_stars = item['stargazers_cnt']
+            curr_stars = item['stargazers_count']
             repo_name = re.sub('/', '---', item['full_name'])
 
             logging.warning(f'Looking at repo={repo_name}, stars={curr_stars} [{visited_repo_cnt}/{max_repo_cnt}]')
