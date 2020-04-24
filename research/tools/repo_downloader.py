@@ -47,10 +47,10 @@ def main():
 
             visited_repo_cnt += 1
             repo_name = re.sub('/', '---', item['full_name'])
+            stars = item['stargazers_count']
 
             logging.warning(f'Looking at repo={repo_name}, stars={stars} [{visited_repo_cnt}/{max_repo_cnt}]')
 
-            stars = item['stargazers_count']
             if stars < _MIN_STARS:
                 logging.warning(f'Stopped, no enough stars in repo={repo_name}, stars={stars} < {_MIN_STARS}')
                 break
