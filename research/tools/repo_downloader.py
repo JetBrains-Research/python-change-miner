@@ -39,7 +39,7 @@ def main():
         q = f'language:{_QUERY_LANGUAGE}{q}&sort=stars&order=desc'
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
-        r = requests.get(f'{_GITHUB_BASE_URL}/search/repositories?q={q}&page={page_num}&per_page=100', headers=headers)
+        r = requests.get(f'{_GITHUB_BASE_URL}/search/repositories?q={q}&page=1&per_page=100', headers=headers)
 
         data = r.json()
         items = data.get('items')
