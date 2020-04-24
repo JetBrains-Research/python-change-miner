@@ -20,13 +20,13 @@ def main():
     logging.warning('Starting')
 
     page_num = 1
-    visited_repo_cnt = 1
+    visited_repo_cnt = 0
     stars = _MIN_STARS
     max_repo_cnt = _REPO_CNT
     stars_to_cnt = {}
 
     while True:
-        if visited_repo_cnt > max_repo_cnt or stars < _MIN_STARS:
+        if visited_repo_cnt >= max_repo_cnt or stars < _MIN_STARS:
             break
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
@@ -35,14 +35,21 @@ def main():
                          headers=headers)
         data = r.json()
         items = data.get('items')
-        max_repo_cnt = min(max_repo_cnt, data.get('total_count'))
+        max_repo_cnt = min(max_repo_cnt, data.get('total_count', 0))
 
         if not items:
             logging.warning(f'No items, response_data={data}')
             break
 
         for item in items:
+            if visited_repo_cnt >= max_repo_cnt:
+                break
+
+            visited_repo_cnt += 1
             repo_name = re.sub('/', '---', item['full_name'])
+
+            logging.warning(f'Looking at repo={repo_name}, stars={stars} [{visited_repo_cnt}/{max_repo_cnt}]')
+
             stars = item['stargazers_count']
             if stars < _MIN_STARS:
                 logging.warning(f'Stopped, no enough stars in repo={repo_name}, stars={stars} < {_MIN_STARS}')
@@ -58,12 +65,6 @@ def main():
             args = ['git', 'clone', item['clone_url'], os.path.join(_REPO_DIR, repo_name)]
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
-
-            logging.warning(f'Visited repo={repo_name}, stars={stars} [{visited_repo_cnt}/{max_repo_cnt}]')
-
-            visited_repo_cnt += 1
-            if visited_repo_cnt > max_repo_cnt:
-                break
 
         page_num += 1
 

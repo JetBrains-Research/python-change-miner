@@ -139,11 +139,10 @@ class Miner:
             shutil.rmtree(self.OUTPUT_DIR)
 
         with multiprocessing.pool.ThreadPool(processes=multiprocessing.cpu_count()) as thread_pool:
-            for patterns in self._size_to_patterns.values():
+            for size, patterns in self._size_to_patterns.items():
                 if not patterns:
                     continue
 
-                size = next(iter(patterns)).size
                 logger.log(logger.WARNING, f'Exporting patterns of size {size}', show_pid=True)
 
                 same_size_dir = os.path.join(self.OUTPUT_DIR, str(size))
@@ -155,13 +154,15 @@ class Miner:
                 self._generate_contents(
                     same_size_dir,
                     f'Size {size} contents',
-                    [{'name': f'Pattern #{p.id}', 'url': f'{p.id}/details.html'} for p in patterns],
+                    [{'name': f'Pattern #{p.id}', 'url': f'{p.id}/details.html'}
+                     for p in sorted(patterns, key=lambda p: p.id)],
                     styles='../../styles.css', has_upper_contents=True)
 
             self._generate_contents(
                 self.OUTPUT_DIR,
                 'Contents',
-                [{'name': f'Size {size}', 'url': f'{size}/contents.html'} for size in self._size_to_patterns.keys()])
+                [{'name': f'Size {size}', 'url': f'{size}/contents.html'}
+                 for size in sorted(self._size_to_patterns.keys())])
 
         logger.warning('Done patterns output')
 
