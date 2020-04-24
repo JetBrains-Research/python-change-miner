@@ -186,9 +186,9 @@ class Fragment:
                 if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                     self._add_extension(label_to_extensions, node)
                 else:
-                    self._magic_extension_processor(label_to_extensions, node)
+                    self._add_in_out_node(label_to_extensions, node)
             elif node.kind == ChangeNode.Kind.CONTROL_NODE:
-                self._magic_extension_processor(label_to_extensions, node)
+                self._add_out_node(label_to_extensions, node)
 
         return label_to_extensions
 
@@ -224,7 +224,7 @@ class Fragment:
 
         s.add(tpl)
 
-    def _magic_extension_processor(self, label_to_exts, node):  # FIXME: rename, find out in article info
+    def _add_in_out_node(self, label_to_exts, node):
         in_nodes = node.get_in_nodes(excluded_labels=[LinkType.MAP])
         out_nodes = node.get_out_nodes(excluded_labels=[LinkType.MAP])
 
@@ -250,6 +250,11 @@ class Fragment:
             else:
                 for next_node in in_nodes:
                     self._add_extension_chain(label_to_exts, node, next_node)
+
+    def _add_out_node(self, label_to_exts, node):
+        out_nodes = node.get_out_nodes(excluded_labels=[LinkType.MAP])
+        if out_nodes.intersection(set(self.nodes)):
+            self._add_extension(label_to_exts, node)
 
     @classmethod
     def create_groups(cls, fragments: set):

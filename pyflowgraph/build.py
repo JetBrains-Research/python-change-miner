@@ -828,6 +828,7 @@ class ASTVisitor(ast.NodeVisitor):
             handlers_fgs.append(handler_fg)
         fg.parallel_merge_graphs([fg1] + handlers_fgs)
         self._pop_control_branch()
+        fg.statement_sinks.clear()
         return fg
 
     def visit_ExceptHandler(self, node):
