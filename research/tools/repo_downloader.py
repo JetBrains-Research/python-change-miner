@@ -17,9 +17,8 @@ _MAX_STARS = settings.get('research_max_stars', 10**9)
 _STAR_BASED_SEARCH = settings.get('research_star_based_search', True)
 _REPOS_PER_STAR = settings.get('research_repos_per_star', 3)
 
-_QUERY_STRING = settings.get('research_repo_query_string')
+_QUERY_LANGUAGE = settings.get('research_query_language', 'python')
 _TOKEN = settings.get('research_github_token', required=False)
-
 
 def main():
     logging.warning('Starting')
@@ -33,9 +32,10 @@ def main():
         if visited_repo_cnt >= max_repo_cnt or stars < _MIN_STARS:
             break
 
-        q = _QUERY_STRING
+        q = ''
         if _STAR_BASED_SEARCH and stars < 10**9:
-            q = f'{q}+stars:{stars}..{stars+_STARS_STEP}'
+            q = f'+stars:{stars}..{stars+_STARS_STEP}'
+        q = f'language:{_QUERY_LANGUAGE}{q}&sort=stars&order=desc'
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None
         r = requests.get(f'{_GITHUB_BASE_URL}/search/repositories?q={q}&page={page_num}&per_page=100', headers=headers)
