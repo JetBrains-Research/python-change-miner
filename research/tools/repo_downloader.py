@@ -42,11 +42,11 @@ def main():
 
         data = r.json()
         items = data.get('items')
-        max_repo_cnt = min(max_repo_cnt, data.get('total_count', 0))
 
         if not items:
             logging.warning(f'No items, response_data={data}')
-            break
+            stars -= _STARS_STEP
+            continue
 
         curr_stars = -1
         stars_to_cnt = {}
@@ -69,7 +69,7 @@ def main():
             p = subprocess.Popen(args, stdout=subprocess.PIPE)
             p.communicate()
 
-        stars = curr_stars
+        stars = curr_stars - _STARS_STEP
         page_num += 1
 
     logging.warning('Done')
