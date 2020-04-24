@@ -290,7 +290,7 @@ class Miner:
     def _generate_html_instance(cls, fragment, is_repr=False):
         repo_info = fragment.graph.repo_info
         repo_name = repo_info.repo_name
-        repo_url = repo_info.repo_url.strip('.git')
+        repo_url = repo_info.repo_url.strip()[:-4]
         commit_hash = repo_info.commit_hash
 
         line_number = repo_info.old_method.ast.lineno
