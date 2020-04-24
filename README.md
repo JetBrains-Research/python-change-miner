@@ -21,5 +21,6 @@ Compiled gumtree is slightly modified and uses env variables
 _GUMTREE_PYTHON_BIN_ (python interpreter path for gumtree pyparser calls) and 
 _GUMTREE_PYPARSER_PATH_ (pythonparser script path). 
 Set them, for instance, as follows: 
-GUMTREE_PYTHON_BIN=python3, GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py
+<code>GUMTREE_PYTHON_BIN=python3</code>, 
+<code>GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py</code>.
 Compiled gumtree and pyparser can be found at _external/_.
