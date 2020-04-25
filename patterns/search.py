@@ -20,9 +20,10 @@ from patterns.models import Fragment, Pattern
 class Miner:
     OUTPUT_DIR = settings.get('patterns_output_dir')
     OUTPUT_DETAILS = settings.get('patterns_output_details')
-
     FULL_PRINT = settings.get('patterns_full_print', False)
     HIDE_OVERLAPPED_FRAGMENTS = settings.get('patterns_hide_overlapped_fragments', True)
+
+    ID_OFFSET = settings.get('patterns_id_offset', 0)
     MIN_PATTERN_SIZE = settings.get('patterns_min_size', 3)
 
     MIN_DATE = None
@@ -36,7 +37,7 @@ class Miner:
 
     def add_pattern(self, pattern):
         self._patterns_cnt += 1
-        pattern.id = self._patterns_cnt
+        pattern.id = self._patterns_cnt + self.ID_OFFSET
 
         patterns = self._size_to_patterns.setdefault(pattern.size, set())
         patterns.add(pattern)
