@@ -329,7 +329,7 @@ class Miner:
 
     @staticmethod
     def _get_base_line_url(repo_info, version):
-        repo_url = repo_info.repo_url.strip('.git')
+        repo_url = repo_info.repo_url.strip()[:-4]
         commit_hash = repo_info.commit_hash
 
         if version == ChangeNode.Version.BEFORE_CHANGES:
