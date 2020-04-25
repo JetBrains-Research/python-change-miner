@@ -49,7 +49,7 @@ class GitAnalyzer:
 
     def _save_data_file(self):
         with open(self._data_file_dir, 'w+') as f:
-            json.dump(self._data, f)
+            json.dump(self._data, f, indent=4)
 
     def build_change_graphs(self):
         repo_names = [
@@ -197,6 +197,8 @@ class GitAnalyzer:
                         commit['repo']['url'],
                         commit['hash'],
                         commit['dtm'],
+                        mod['old_path'],
+                        mod['new_path'],
                         old_method,
                         new_method,
                         author_email=commit['author']['email'] if commit.get('author') else None,
@@ -309,7 +311,8 @@ class Method:
 
 
 class RepoInfo:
-    def __init__(self, repo_name, repo_path, repo_url, commit_hash, commit_dtm, old_method, new_method,
+    def __init__(self, repo_name, repo_path, repo_url, commit_hash, commit_dtm,
+                 old_file_path, new_file_path, old_method, new_method,
                  author_email=None, author_name=None):
         self.repo_name = repo_name
         self.repo_path = repo_path
@@ -317,6 +320,9 @@ class RepoInfo:
 
         self.commit_hash = commit_hash
         self.commit_dtm = commit_dtm
+
+        self.old_file_path = old_file_path
+        self.new_file_path = new_file_path
 
         self.old_method = old_method
         self.new_method = new_method

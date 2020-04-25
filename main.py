@@ -87,8 +87,10 @@ def main():
                         src = f.read()
                         methods.append(Method(path, 'test_name', ast.parse(src, mode='exec').body[0], src))
 
-                repo_info = RepoInfo('mock repo path', 'mock repo name', 'mock repo url', 'mock hash',
-                                     datetime.datetime.now(tz=datetime.timezone.utc), methods[0], methods[1])
+                mock_commit_dtm = datetime.datetime.now(tz=datetime.timezone.utc)
+                repo_info = RepoInfo(
+                    'mock repo path', 'mock repo name', 'mock repo url', 'mock hash', mock_commit_dtm,
+                    'mock old file path', 'mock new file path', methods[0], methods[1])
 
                 cg = changegraph.build_from_files(old_path, new_path, repo_info=repo_info)
                 change_graphs.append(cg)

@@ -242,6 +242,14 @@ class Miner:
                         'hash': repo_info.commit_hash,
                         'dtm': repo_info.commit_dtm.strftime('%d.%m.%Y %H:%M:%S')
                     },
+                    'files': {
+                        'old': {
+                            'path': repo_info.old_file_path
+                        },
+                        'new': {
+                            'path': repo_info.new_file_path,
+                        }
+                    },
                     'methods': {
                         'old': {
                             'name': repo_info.old_method.name,
