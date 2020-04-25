@@ -175,7 +175,7 @@ class GitAnalyzer:
                 old_method_src = old_method.get_source()
                 new_method_src = new_method.get_source()
 
-                if not all([old_method_src, new_method_src]) or old_method_src == new_method_src:
+                if not all([old_method_src, new_method_src]) or old_method_src.strip() == new_method_src.strip():
                     continue
 
                 line_count = max(old_method_src.count('\n'), new_method_src.count('\n'))
@@ -236,7 +236,20 @@ class GitAnalyzer:
         return ASTMethodExtractor(file_path, src).visit(src_ast)
 
     @staticmethod
+    def _set_unique_names(methods):
+        method_name_to_cnt = {}
+        for method in methods:
+            cnt = method_name_to_cnt.setdefault(method.full_name, 0) + 1
+            method_name_to_cnt[method.full_name] = cnt
+
+            if cnt > 1:
+                method.full_name += f'#{cnt}'
+
+    @staticmethod
     def _get_methods_mapping(old_methods, new_methods):
+        GitAnalyzer._set_unique_names(old_methods)
+        GitAnalyzer._set_unique_names(new_methods)
+
         old_method_to_new = {}
         for old_method in old_methods:
             for new_method in new_methods:
