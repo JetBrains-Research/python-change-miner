@@ -132,7 +132,7 @@ class Miner:
         for k in cleared_keys:
             self._size_to_patterns.pop(k)
 
-    def print_patterns(self):  # todo: arrange patterns by their frequency
+    def print_patterns(self):
         if not self._size_to_patterns:
             logger.warning('No patterns were found')
             return

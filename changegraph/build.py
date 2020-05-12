@@ -8,7 +8,7 @@ from changegraph.gumtree import GumTree
 from changegraph import gumtree
 
 
-class ChangeGraphBuilder:  # TODO: should not contain hardcoded gumtree matching
+class ChangeGraphBuilder:  # TODO: make gumtree optional
     def build_from_files(self, path1, path2, repo_info=None):
         logger.warning(f'Change graph building...', show_pid=True)
         start_building = time.time()

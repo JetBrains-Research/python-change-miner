@@ -7,7 +7,7 @@ class ChangeGraph:
         self.repo_info = repo_info
 
 
-class ChangeNode:  # todo: base class for pfg and cg
+class ChangeNode:  # todo: create base class for pfg and cg
     _NODE_ID = 0
 
     class Property:
