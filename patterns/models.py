@@ -348,7 +348,7 @@ class Fragment:
 
 
 class Pattern:
-    DO_ASYNC_MINING = settings.get('patterns_async_mining')
+    DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 1)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
 

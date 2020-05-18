@@ -21,6 +21,7 @@ class GitAnalyzer:
     GIT_REPOSITORIES_DIR = settings.get('git_repositories_dir')
     STORAGE_DIR = settings.get('change_graphs_storage_dir')
     STORE_INTERVAL = settings.get('change_graphs_store_interval', 300)
+    TRAVERSE_ASYNC = settings.get('traverse_async', True)
 
     MIN_DATE = None
     if settings.get('traverse_min_date', required=False):
@@ -62,24 +63,33 @@ class GitAnalyzer:
 
         logger.warning(f'Found {len(repo_names)} repositories, starting a build process')
 
-        with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
-            for repo_num, repo_name in enumerate(repo_names):
-                logger.warning(f'Looking at repo {repo_name} [{repo_num+1}/{len(repo_names)}]')
+        if GitAnalyzer.TRAVERSE_ASYNC:
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+                self._mine_changes(repo_names, pool=pool)
+        else:
+            self._mine_changes(repo_names)
 
-                self._data['visited'].append(repo_name)
-                self._save_data_file()
+    def _mine_changes(self, repo_names, pool=None):
+        for repo_num, repo_name in enumerate(repo_names):
+            logger.warning(f'Looking at repo {repo_name} [{repo_num + 1}/{len(repo_names)}]')
 
-                start = time.time()
-                commits = self._extract_commits(repo_name)
+            self._data['visited'].append(repo_name)
+            self._save_data_file()
 
-                if commits:
-                    try:
-                        pool.map(self._get_commit_change_graphs, commits)
-                    except:
-                        logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
+            start = time.time()
+            commits = self._extract_commits(repo_name)
 
-                logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num+1}/{len(repo_names)}]',
-                               start_time=start)
+            if pool and len(commits) > 0:
+                try:
+                    pool.map(self._build_and_store_change_graphs, commits)
+                except:
+                    logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
+            else:
+                for commit in commits:
+                    self._build_and_store_change_graphs(commit)
+
+            logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num + 1}/{len(repo_names)}]',
+                           start_time=start)
 
     def _extract_commits(self, repo_name):
         start = time.time()
@@ -152,9 +162,8 @@ class GitAnalyzer:
             pickle.dump(pickled_graphs, f)
         logger.info(f'Storing graphs to {filename} finished', show_pid=True)
 
-
     @staticmethod
-    def _get_commit_change_graphs(commit):
+    def _build_and_store_change_graphs(commit):
         change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
         logger.info(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)

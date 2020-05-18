@@ -3,6 +3,7 @@
   "git_repositories_dir": str,
 
   "traverse_file_max_line_count": 1500,
+  "traverse_async": true?,
   "traverse_min_date": str?,
 
   "change_graphs_storage_dir": str,
@@ -13,7 +14,7 @@
 
   "patterns_min_frequency": 3,
   "patterns_max_frequency": 1000,
-  "patterns_async_mining": true,
+  "patterns_async_mining": false?,
   "patterns_full_print": false,
   "patterns_hide_overlapped_fragments": true,
   "patterns_min_size": 3,
