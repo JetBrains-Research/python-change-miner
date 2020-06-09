@@ -1,26 +1,56 @@
-A tool for graph-based change patterns mining in Python code.
+[![JetBrains Research](https://jb.gg/badges/research.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 
-Usage:<br>
-python main.py \<mode> \<args>
+# Code Change Miner
+A tool for mining graph-based change patterns in Python code.
 
-Modes:<br>
-pfg — build a graph from python src<br>
-cg — build a change graph from two src files<br>
-collect-cgs — mine change graphs from local repositories<br>
-patterns — search for patterns in stored change graphs
+## What it does
+What is a graph? What is a change graph? Why do we need them? Why search for patterns?
 
-Requirements:<br>
-Python 3.8+
+## Getting started
+0. The tool requires Python 3.8+ to run.
+1. Install the required dependencies:
 
-Setup:<br>
-1. Create _settings.json_ from _conf/settings.json.example_ in the same directory.
-2. Use <code>python -r requirements.txt</code> to install requirements.
-3. If you want to use the tool in cg or collect-cgs modes, 
-you need to setup [gumtree](https://github.com/GumTreeDiff/gumtree).
-Compiled gumtree is slightly modified and uses env variables 
-_GUMTREE_PYTHON_BIN_ (python interpreter path for gumtree pyparser calls) and 
-_GUMTREE_PYPARSER_PATH_ (pythonparser script path). 
-Set them, for instance, as follows: 
-<code>GUMTREE_PYTHON_BIN=python3</code>, 
-<code>GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py</code>.
-Compiled gumtree and pyparser can be found at _external/_.
+    ```shell script
+    pip3 install -r requirements.txt
+    ```
+    
+2. Create the settings file _settings.json_ based on _conf/settings.json.example_ and save it in the same directory. You can find the description of individual settings in _conf/help.md_ (**TODO**)
+    
+3. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need to setup [gumtree](https://github.com/GumTreeDiff/gumtree). Compiled gumtree is slightly modified and uses env variables `GUMTREE_PYTHON_BIN` (python interpreter path for gumtree pyparser calls) and `GUMTREE_PYPARSER_PATH` (pythonparser script path). Set them, for instance, as follows: 
+
+     ```shell script
+     GUMTREE_PYTHON_BIN=python3
+     ```
+     ```shell script
+     GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py
+     ```
+ 
+    Compiled gumtree and pyparser can be found at _external/_.
+
+## How to use
+You can run any step of the pipeline by using the following simple command:
+```shell script
+python main.py <mode> <args>
+```
+
+The tool currently supports four modes:
+1. `pfg` — build a graph from the Python source.
+
+    Possible arguments:
+    - arg
+    - arg
+2. `cg` — build a change graph from two source files.
+
+    Possible arguments:
+    - arg
+    - arg
+3. `collect-cgs` — mine change graphs from local repositories.
+
+    Possible arguments:
+    - arg
+    - arg
+4. `patterns` — search for patterns in stored change graphs.
+
+    Possible arguments:
+    - arg
+    - arg
