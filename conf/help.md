@@ -13,7 +13,7 @@ Name                             | Description
 **traverse_async**               | **true** for the asynchronous processing of repositories
 **traverse_min_date**            | **(optional)** the date in the **%d.%m.%Y** format, no changes older than this date will be processed
 **change_graphs_storage_dir**    | path to the output directory
-**change_graphs_store_interval** | batch size of the number of changes to be saved in a single file (to prevent the files from getting too big)
+**change_graphs_store_interval** | batch size of the number of change graphs to be saved in a single file (to prevent the files from getting too big)
 
 ### Settings for _patterns_ mode:
 
@@ -28,7 +28,7 @@ Name                                   | Description
 **patterns_async_mining**              | **true** for the asynchronous mining of patterns **(not recommended)**
 **patterns_full_print**                | **true** for saving the information about every individual instance of a pattern, **false** for saving one instance per pattern
 **patterns_hide_overlapped_fragments** | **true** for ignoring pattern instances with overlapping code fragments
-**patterns_min_size**                  | minimum number of nodes in the pattern
+**patterns_min_size**                  | minimum number of nodes that the pattern must have to be included in the output
 **patterns_min_date**                  | **(optional)** the date in the **%d.%m.%Y** format, no changes older than this date will be processed
 
 ### Additional settings:
