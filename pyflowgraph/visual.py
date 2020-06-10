@@ -26,12 +26,18 @@ def _get_label_and_attrs(node, show_op_kind=True, show_data_keys=False):
 
 
 def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str,
-                             show_op_kinds=True, show_data_keys=False, show_control_branch=False, separate_mapped=True):
+                             show_op_kinds=True, show_data_keys=False, show_control_branch=False,
+                             separate_mapped=True, show_entry_node=False, min_statement_num=-1, max_statement_num=-1):
 
     vg = gv.Digraph(name=file_name, format='pdf')
 
     used = {}
     for node in graph.nodes:
+        if isinstance(node, EntryNode) and not show_entry_node \
+                or min_statement_num is not None and node.statement_num < min_statement_num \
+                or max_statement_num is not None and node.statement_num > max_statement_num:
+            continue
+
         if used.get(node):
             continue
 
@@ -55,6 +61,11 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str,
 
     for node in graph.nodes:
         for edge in node.in_edges:
+            if isinstance(edge.node_from, EntryNode) and not show_entry_node \
+                    or min_statement_num is not None and edge.node_from.statement_num < min_statement_num \
+                    or max_statement_num is not None and edge.node_from.statement_num > max_statement_num:
+                continue
+
             label = edge.label
             attrs = {}
 
