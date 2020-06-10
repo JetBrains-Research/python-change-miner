@@ -8,7 +8,7 @@ A **program dependence graph** is a way of representing the code by showing its 
 
 A **change graph** is a program dependence graph for the fragment of code changes (using the versions of code before and after the target change).
 
-Similar code changes will have similar change graphs, which means that any versioned code can be mined for **partterns** in its changes. This tool does exactly that for Python code: it can build program dependence graphs, build change graphs for changed files, mine such change graphs from Git repositories by traversing their VCS history, and discover patterns in these change graphs.
+Similar code changes will have similar change graphs, which means that any versioned code can be mined for **patterns** in its changes. This tool does exactly that for Python code: it can build program dependence graphs, build change graphs for changed files, mine such change graphs from Git repositories by traversing their VCS history, and discover patterns in these change graphs.
 
 This functionality can be used for empirical research of coding practices, as well as for mining the candidates for potential IDE inspections.
 
@@ -20,7 +20,7 @@ This functionality can be used for empirical research of coding practices, as we
     pip3 install -r requirements.txt
     ```
     
-2. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need to setup [GumTree](https://github.com/GumTreeDiff/gumtree). Compiled GumTree is slightly modified and uses env variables `GUMTREE_PYTHON_BIN` (python interpreter path for GumTree pyparser calls) and `GUMTREE_PYPARSER_PATH` (pythonparser script path). Set them, for instance, as follows: 
+2. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need to setup [GumTree](https://github.com/GumTreeDiff/gumtree). You can use the compiled version of GumTree (can be found in the [_external_](https://github.com/JetBrains-Research/code-change-miner/tree/master/external) directory), it is slightly modified and uses environment variables `GUMTREE_PYTHON_BIN` (python interpreter path for GumTree pyparser calls) and `GUMTREE_PYPARSER_PATH` (pyparser script path). Set them, for instance, as follows: 
 
      ```shell script
      GUMTREE_PYTHON_BIN=python3
@@ -28,8 +28,6 @@ This functionality can be used for empirical research of coding practices, as we
      ```shell script
      GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py
      ```
- 
-    Compiled GumTree and pyparser can be found at [_external_](https://github.com/JetBrains-Research/code-change-miner/tree/master/external).
     
 3. If you want to mine change graphs or patterns from the local repositoires, create the settings file _settings.json_ based on [_conf/settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example) and save it in the [same directory](https://github.com/JetBrains-Research/code-change-miner/tree/master/conf). You can find the description of individual settings in [_conf/help.md_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/help.md).
 
@@ -46,7 +44,7 @@ The tool currently supports four operation modes:
     Arguments:
     - `-i` — a path to the source file.
     - `-o` — a path to the output file. Two files will be created, a .dot file with a graph and a .pdf file with its visualization.
-    - `--no-closure` — **(optional)** if passed, no closure will be carried out for the graph.
+    - `--no-closure` — **(optional)** if passed, no closure will be built for the graph.
     - `--show-deps` — **(optional)** if passed, edges with type _dep_ will be present in the graph, indicating the dependence of the vertices on each other.
     - `--hide-op-kinds` — **(optional)** if passed, the types of operations will be hidden in the graph.
     - `--show-data-keys` — **(optional)** if passed, IDs of the variables will be present in the graph.
@@ -54,7 +52,7 @@ The tool currently supports four operation modes:
     Typical use:
     
     ```shell script
-    python3 main.py pfg -i examples/0_old.py -o images/pfg.dot
+    python3 main.py pfg -i examples/src.py -o images/pfg.dot
     ```
     
 2. `cg` — build a change graph from two source files (before and after change).
@@ -80,11 +78,11 @@ The tool currently supports four operation modes:
     python3 main.py collect-cgs
     ```
     
-    The tool uses [pickle](https://docs.python.org/3/library/pickle.html) to save the data, so the output files are serialized and can be only processed by pickle. However, running the tool in the `patterns` mode for detecting patterns within the mined change graphs will deserialize them automatically. 
+    The tool uses [pickle](https://docs.python.org/3/library/pickle.html) to save the data, so the output files are serialized and can be only processed by pickle. Running the tool in the `patterns` mode for detecting patterns within the mined change graphs will deserialize them automatically. 
     
 4. `patterns` — search for patterns in the change graphs.
 
-    This mode can be run in two ways: from the results of the previous step or from the source files. The settigs are located in the JSON file, see p. 3 of **Getting started**. If you want to look for patterns in the change graphs obtained from running the tool in the `collect-sgs` mode, simply run:
+    This mode can be run in two ways: from the results of the previous step or from the source files. The settings are located in the JSON file, see p. 3 of **Getting started**. If you want to look for patterns in the change graphs obtained from running the tool in the `collect-sgs` mode, simply run:
     
     ```shell script
     python3 main.py patterns
@@ -107,12 +105,10 @@ The tool currently supports four operation modes:
     
     <img src="https://sun9-47.userapi.com/c857320/v857320810/1b19c7/Sr42Lt0TfMU.jpg" alt="drawing" width="300"/>
     
-    The patterns are organized by their size in nodes. In the output directory, a directory is created for each size, in the example, the size is 17. In each of these directories we store the patterns, once again, as directories with their ID in the name. In the exaple, 1379 is the ID of a pattern with size 17.
+    The patterns are organized by their size in nodes. In the output directory, a directory is created for each size, in the example, the size is 17. In each of these directories we store the patterns, once again, as directories with their ID in the name. In the example, 1379 is the ID of a pattern with size 17.
     
-    Within each pattern, we store _details.html_ with its description and the listing of the pattern instances, and the instances themselves. For each instance, there are three types of files: _sample{ID}_ is the code of the instance (before and after the change), _fragment{ID}_ is the change graph of this specific sample, and _graph{ID}_ is the larger change graph, from which this sample came from. You can also control the specifics of the output by changing the settings file.
+    Within each pattern, we store _details.html_ with its description and the listing of the pattern instances, and the instances themselves. For each instance, there are three types of files: _sample{ID}_ is the code of the instance (before and after the change), _fragment{ID}_ is the change graph of this specific sample, and _graph{ID}_ is the larger change graph, from which this sample came from. You can also control the specifics of the output by changing the settings file. _contents.html_ on every level of the structure allows for a convinient navigation.
     
-    _contents.html_ on every level of the structure allows for a convinient navigation. To understand the structure better, you can browse an example output [here](https://stspbu.github.io/patterns/contents.html).
-    
-# Contacts
+## Contacts
     
 If you have any questions or suggenstions, don't hesitate to open an issue or contact the developers at stardust.skg@gmail.com.
