@@ -3,7 +3,7 @@
 In order to run the tool, you need to create a file _settings.json_ in this directory, based on [_settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example).
 Here are the detailed explanations of the settings:
 
-### Settings for _collect-cgs_ mode:
+### Settings for the _collect-cgs_ mode:
 
 Name                             | Description
 ---                              | ---
@@ -15,7 +15,7 @@ Name                             | Description
 **change_graphs_storage_dir**    | path to the output directory
 **change_graphs_store_interval** | batch size of the number of change graphs to be saved in a single file (to prevent the files from getting too big)
 
-### Settings for _patterns_ mode:
+### Settings for the _patterns_ mode:
 
 By default, the input for mining patterns is the output of collecting change graphs, so this step should be run after the previous one.
 
