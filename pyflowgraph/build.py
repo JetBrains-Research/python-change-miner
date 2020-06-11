@@ -1,5 +1,4 @@
 import ast
-import copy
 import html
 from typing import Dict, Set
 
@@ -80,7 +79,7 @@ class GraphBuilder:
         if node.get_definitions():
             return
 
-        for edge in copy.copy(node.in_edges):
+        for edge in node.in_edges.copy():
             if not isinstance(edge, DataEdge):
                 continue
 
@@ -138,9 +137,8 @@ class GraphBuilder:
 
         logger.debug(f'In node {node}')
         node_controls = {control for (control, branch_kind) in node.control_branch_stack}
-        for e in copy.copy(node.in_edges):
+        for e in node.in_edges.copy():
             in_node = e.node_from
-            in_node_in_edges = copy.copy(in_node.in_edges)
             if not isinstance(e, ControlEdge) or not isinstance(in_node, ControlNode):  # op nodes processed as in_node2
                 continue
 
@@ -149,7 +147,7 @@ class GraphBuilder:
                 cls._build_control_data_closure(in_node, processed_nodes)
 
             visited = set()
-            for e2 in in_node_in_edges:
+            for e2 in in_node.in_edges.copy():
                 in_node2 = e2.node_from
                 if not isinstance(in_node2, OperationNode) and not isinstance(in_node2, ControlNode):
                     continue
@@ -181,8 +179,8 @@ class GraphBuilder:
                     branch_kind = in_lowest_e.branch_kind
 
                 in_node2.create_control_edge(node, branch_kind, add_to_stack=False)
-                logger.debug(f'Created control edge from {in_node2} to {node} with kind = {branch_kind}'
-                             f'From node={node}, in_node={in_node}, in_node2={in_node2}')
+                logger.debug(f'Created control edge from {in_node2} to {node} with kind = {branch_kind} '
+                             f'for node={node}, in_node={in_node}, in_node2={in_node2}')
                 visited.add(in_node2)
 
         processed_nodes.add(node)
@@ -240,13 +238,13 @@ class GraphBuilder:
 
         if deepest_control:
             node.reset_controls()
-            node.control_branch_stack = copy.copy(deepest_control.control_branch_stack)
+            node.control_branch_stack = deepest_control.control_branch_stack.copy()
             deepest_control.create_control_edge(node, branch_kind)
         processed_nodes.add(node)
 
     @staticmethod
     def _remove_empty_nodes(fg):
-        for node in copy.copy(fg.nodes):
+        for node in fg.nodes.copy():
             if isinstance(node, EmptyNode):
                 fg.remove_node(node)
 

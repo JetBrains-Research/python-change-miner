@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import ast
 from typing import Set
 
@@ -121,7 +120,7 @@ class StatementNode(Node):
     def __init__(self, label, ast, control_branch_stack, /):
         super().__init__(label, ast)
 
-        self.control_branch_stack = copy.copy(control_branch_stack)
+        self.control_branch_stack = control_branch_stack.copy()
 
         if not isinstance(self, EntryNode) and control_branch_stack:
             control, branch_kind = control_branch_stack[-1]
@@ -147,7 +146,7 @@ class StatementNode(Node):
             node_to.control_branch_stack.append((self, branch_kind))
 
     def reset_controls(self):
-        for e in copy.copy(self.in_edges):
+        for e in list(self.in_edges):
             if isinstance(e, ControlEdge):
                 self.remove_in_edge(e)
 
@@ -231,6 +230,9 @@ class ControlEdge(Edge):
         super().__init__('control', node_from, node_to)
         self.branch_kind = branch_kind
 
+    def __repr__(self):
+        return f'{self.node_from} ={self.label}> {self.node_to} [{self.branch_kind}]'
+
 
 class DataEdge(Edge):
     def __init__(self, label, node_from, node_to):  # FIXME: DO NO CONSIDER LABEL AS LINK_TYPE, DEFINE A NEW INDICATOR
@@ -313,8 +315,8 @@ class ExtControlFlowGraph:
         self.var_refs = self.var_refs.union(unresolved_refs)
 
     def parallel_merge_graphs(self, graphs, op_link_type=None):
-        old_sinks = copy.copy(self.sinks)
-        old_statement_sinks = copy.copy(self.statement_sinks)
+        old_sinks = self.sinks.copy()
+        old_statement_sinks = self.statement_sinks.copy()
 
         self.sinks.clear()
         self.statement_sinks.clear()

@@ -22,7 +22,7 @@ def test_commits_pickling():
     cnt_after = len(objgraph.by_type("Commit"))
     print(f'Ending with {cnt_after}')
 
-    assert cnt_before == cnt_after
+    assert cnt_before == cnt_after  # Track issue on https://github.com/ishepard/pydriller/issues/102
 
 
 if __name__ == '__main__':

@@ -150,7 +150,7 @@ class GitAnalyzer:
         pickled_graphs = []
         for graph in graphs:
             try:
-                pickled = pickle.dumps(graph)
+                pickled = pickle.dumps(graph, protocol=5)
                 pickled_graphs.append(pickled)
             except RecursionError:
                 logger.error(f'Unable to pickle graph, file_path={graph.repo_info.old_method.file_path}, '

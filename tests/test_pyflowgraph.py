@@ -7,12 +7,10 @@ def test_graph_building():
     _build_var_decl()
     _build_var_decl_ref()
     _build_variable_tuple_decl()
-    _build_attribute_assign()
     _build_attribute_call()
     _build_attribute_refs_test()
     _build_attribute_ref_after_call()
     _build_while()
-    # _build_subscript_fn_call()
 
 
 def _build_fg(src, build_closure=True):
@@ -39,21 +37,12 @@ def _build_variable_tuple_decl():
     assert len(fg.nodes) == 7  # start, var, assign, lit, lit, lit, tpl
 
 
-def _build_attribute_assign():
-    fg = _build_fg("""
-        self.field.value = 4
-    """)
-    labels = {n.label for n in fg.nodes}
-    expected_labels = {'START', 'value', '4', '='}
-    assert labels == expected_labels
-
-
 def _build_attribute_call():
     fg = _build_fg("""
         self.o.fn()
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'START', 'fn'}
+    expected_labels = {'START', 'self', 'self.o', 'self.o.fn', 'fn'}
     assert labels == expected_labels
 
 
@@ -63,7 +52,9 @@ def _build_attribute_refs_test():
         value = 14
         a = (self.field.value, value)
     """)
-    assert True
+    labels = {n.label for n in fg.nodes}
+    expected_labels = {'=', 'self', 'self.field', '14', 'START', 'Tuple', 'value', 'self.field.value', 'a'}
+    assert labels == expected_labels
 
 
 def _build_attribute_ref_after_call():
@@ -71,7 +62,9 @@ def _build_attribute_ref_after_call():
         self.o.fn().param = 14
         print(self.o.fn().param)
     """)
-    assert True
+    labels = {n.label for n in fg.nodes}
+    expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print'}
+    assert labels == expected_labels
 
 
 def _build_while():
@@ -81,24 +74,9 @@ def _build_while():
             i += 1
         print(i)
     """)
-    assert True
-
-
-# def _build_subscript_fn_call():
-#     fg = _build_fg("""
-#         arr = []
-#         arr[0]()
-#     """)
-#     assert True
-#
-#
-# def _build_subscript_assign():
-#     fg = _build_fg("""
-#         arr = []
-#         k = 0, i = 0
-#         arr[i] = k
-#     """)
-#     assert True
+    labels = {n.label for n in fg.nodes}
+    expected_labels = {'0', 'Lt', '=', 'START', 'i', 'while', '10', 'print'}
+    assert labels == expected_labels
 
 
 def test_controls_switching():
