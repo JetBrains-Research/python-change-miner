@@ -1,7 +1,5 @@
-from pyflowgraph import visual
-from pyflowgraph.models import DataNode, ControlNode, OperationNode, DataEdge, \
-    ControlEdge, ExtControlFlowGraph
-from pyflowgraph.build import GraphBuilder
+from . import visual
+from .build import GraphBuilder
 
 
 _builder = GraphBuilder()

@@ -6,7 +6,6 @@ from typing import Set
 from log import logger
 
 import vb_utils
-from changegraph.gumtree import GumTree
 
 
 class Node:
@@ -395,6 +394,8 @@ class ExtControlFlowGraph:
         self.nodes.add(entry_node)
 
     def map_to_gumtree(self, gt):
+        from changegraph.gumtree import GumTree
+
         logger.info('Trying to stick pfg to gumtree')
         self.gumtree = gt
 

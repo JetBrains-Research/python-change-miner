@@ -1,4 +1,3 @@
-import changegraph  # this import is needed todo: resolve circular import problems
 import pyflowgraph
 from tests import utils
 
