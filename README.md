@@ -25,8 +25,15 @@ potential IDE inspections.
     ```shell script
     pip3 install -r requirements.txt
     ```
-    
-2. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need 
+
+2. Create the settings file _settings.json_ based on 
+[_conf/settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example) 
+and save it in the [same directory](https://github.com/JetBrains-Research/code-change-miner/tree/master/conf). 
+You can find the description of individual settings 
+in [_conf/help.md_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/help.md).
+
+
+3. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need 
 to setup [GumTree](https://github.com/GumTreeDiff/gumtree). You can use the compiled version of GumTree 
 (can be found in the [_external_](https://github.com/JetBrains-Research/code-change-miner/tree/master/external) 
 directory), it is slightly modified and uses environment variables `GUMTREE_PYTHON_BIN` 
@@ -39,12 +46,6 @@ Set them, for instance, as follows:
      ```shell script
      GUMTREE_PYPARSER_PATH={project_dir}/external/pyparser.py
      ```
-    
-3. If you want to mine change graphs or patterns from the local repositories, create the settings file _settings.json_ 
-based on [_conf/settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example) 
-and save it in the [same directory](https://github.com/JetBrains-Research/code-change-miner/tree/master/conf). 
-You can find the description of individual settings 
-in [_conf/help.md_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/help.md).
 
 ## How to use
 You can run any step of the pipeline by using the following simple command:
