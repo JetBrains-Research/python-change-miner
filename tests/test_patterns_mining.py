@@ -108,8 +108,12 @@ def _get_freq_group(fr):
     return freq_group
 
 
-if __name__ == '__main__':
+def init():
     Pattern.MIN_FREQUENCY = 1
     #
 
-    test_fragment_label_to_ext_list()
+    if __name__ == '__main__':
+        test_fragment_label_to_ext_list()
+
+
+init()
