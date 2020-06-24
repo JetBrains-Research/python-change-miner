@@ -82,7 +82,7 @@ def test_fragment_label_to_ext_list():
     group = _get_freq_group(fr)
 
     p = Pattern(group, freq=None)
-    print(p.fragments)
+    assert p.size > 0
 
 
 def _get_freq_group(fr):
@@ -109,4 +109,7 @@ def _get_freq_group(fr):
 
 
 if __name__ == '__main__':
+    Pattern.MIN_FREQUENCY = 1
+    #
+
     test_fragment_label_to_ext_list()
