@@ -82,7 +82,7 @@ class Miner:
             pattern = Pattern(fragments, len(fragments))
             pattern = pattern.extend()
 
-            if pattern.is_change() and pattern.size > self.MIN_PATTERN_SIZE:
+            if pattern.is_change() and pattern.size >= self.MIN_PATTERN_SIZE:
                 self.add_pattern(pattern)
                 logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
 
