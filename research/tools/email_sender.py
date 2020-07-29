@@ -9,7 +9,6 @@ from email.mime.text import MIMEText
 import settings
 
 _BASE_URL = settings.get('research_patterns_site_base_url')
-_IN_DIR = settings.get('research_patterns_in_dir')
 _OUT_DIR = settings.get('research_patterns_out_dir')
 _DATA_FILE_PATH = os.path.join(_OUT_DIR, 'email-data.json')
 _EMAIL_FILE_PATH = os.path.join(_OUT_DIR, 'email-text.html')
