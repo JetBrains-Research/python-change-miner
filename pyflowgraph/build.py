@@ -5,7 +5,7 @@ from typing import Dict, Set
 from asttokens import asttokens
 
 from log import logger
-from pyflowgraph import models, ast_utils
+from pyflowgraph import models, ast_utils, srcML
 from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, \
     EntryNode, EmptyNode, ControlEdge, StatementNode
 
@@ -50,22 +50,31 @@ class GraphBuilder:
     def build_from_source(self, source_code, show_dependencies=False, build_closure=True):
         models._statement_cnt = 0
 
-        source_code_ast = ast.parse(source_code, mode='exec')
-        tokenized_ast = asttokens.ASTTokens(source_code, tree=source_code_ast)
+        s = srcML.parse(source_code)
+        root = s.root
 
-        if isinstance(tokenized_ast.tree, ast.Module) and isinstance(tokenized_ast.tree.body[0], ast.FunctionDef):
-            root_ast = tokenized_ast.tree.body[0]
-        else:
-            root_ast = tokenized_ast.tree
+        c_ast_visitor = srcML.ASTVisitor()
+        fg = c_ast_visitor.visit(root)
 
-        ast_visitor = ASTVisitor()
-        fg = ast_visitor.visit(root_ast)
+        print(root)
 
-        if not show_dependencies:
-            self.resolve_dependencies(fg)
+        # source_code_ast = ast.parse(source_code, mode='exec')
+        # tokenized_ast = asttokens.ASTTokens(source_code, tree=source_code_ast)
 
-        if build_closure:
-            self.build_closure(fg)
+        # if isinstance(tokenized_ast.tree, ast.Module) and isinstance(tokenized_ast.tree.body[0], ast.FunctionDef):
+        #     root_ast = tokenized_ast.tree.body[0]
+        # else:
+        #     root_ast = tokenized_ast.tree
+        #
+
+        # ast_visitor = ASTVisitor()
+        # fg = ast_visitor.visit(root_ast)
+        #
+        # if not show_dependencies:
+        #     self.resolve_dependencies(fg)
+        #
+        # if build_closure:
+        #     self.build_closure(fg)
 
         return fg
 
