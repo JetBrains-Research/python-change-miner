@@ -28,11 +28,14 @@ def parse_xml(xml):
         if has_namespace:
             el.tag = postfix  # strip all namespaces
 
-        # Still need to remove namespace prefix from attrib dict
-        # for el2 in el.attrib:
-        #     prefixA, has_namespaceA, postfixA = el2.partition('}')
-        #     if has_namespaceA:
-        #         el.attrib[postfixA] = el.attrib.pop(el2)
+        new_dict = {}
+        # remove namespace prefix from attrib dict - positions
+        for el2 in el.attrib:
+            prefixA, has_namespaceA, postfixA = el2.partition('}')
+            if has_namespaceA:
+                new_dict[postfixA] = el.attrib[el2]
+
+        el.attrib = new_dict
     return it
 
 
