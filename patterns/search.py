@@ -61,8 +61,9 @@ class Miner:
                 if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
 
-                if not (node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL):
-                        # or node.kind == ChangeNode.Kind.CONTROL_NODE):
+                # if not (node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL):
+                #     continue
+                if not (node.kind == ChangeNode.Kind.CONTROL_NODE):
                     continue
 
                 label = f'{node.label}~{node.mapped.label}'
