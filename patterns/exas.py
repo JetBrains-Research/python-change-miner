@@ -1,7 +1,7 @@
 from pyflowgraph.models import LinkType
 
-
 import sys
+
 HALF_N = sys.maxsize // 2
 N = HALF_N * 2
 
@@ -15,21 +15,24 @@ class ExasFeature:
     Features characterize code fragments
     Read more: "Accurate and Efficient Structural Characteristic Feature Extraction"
     """
-    MAX_LENGTH = 2 ** 3 - 1
+
+    # There was: MAX_LENGTH = 2 ** 3 - 1
+    # But according to the specified paper, "N = 4 gives the precision of almost 100%"
+    MAX_LENGTH = 4
+
+    edge_label_to_feature_id = {
+        LinkType.QUALIFIER: 0,
+        LinkType.CONDITION: 1,
+        LinkType.CONTROL: 2,
+        LinkType.DEFINITION: 3,
+        LinkType.MAP: 4,
+        LinkType.PARAMETER: 5,
+        LinkType.RECEIVER: 6,
+        LinkType.REFERENCE: 7
+    }
 
     def __init__(self, nodes=None):
         self.node_label_to_feature_id = {}
-        self.edge_label_to_feature_id = {
-            LinkType.QUALIFIER: 0,
-            LinkType.CONDITION: 1,
-            LinkType.CONTROL: 2,
-            LinkType.DEFINITION: 3,
-            LinkType.MAP: 4,
-            LinkType.PARAMETER: 5,
-            LinkType.RECEIVER: 6,
-            LinkType.REFERENCE: 7
-        }
-
         if nodes is not None:
             self._bind_node_feature_ids(nodes)
 
