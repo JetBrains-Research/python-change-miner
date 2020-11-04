@@ -2,6 +2,7 @@ import copy
 import time
 import multiprocessing
 import functools
+from collections import deque
 
 from typing import Set, Optional, Dict, FrozenSet, Tuple
 
@@ -123,7 +124,7 @@ class Fragment:
 
     def __recalc_vector(self, node, ext_by_one_nodes):
         exas_feature = ExasFeature(nodes=ext_by_one_nodes)
-        sequence = [node.label]
+        sequence = deque([node.label])
         self.__exas_backward_dfs(node, node, sequence, exas_feature)
 
     def __exas_backward_dfs(self, first_node, last_node, sequence, exas_feature):
@@ -133,11 +134,11 @@ class Fragment:
         if len(sequence) < ExasFeature.MAX_LENGTH:
             for e in first_node.in_edges:
                 if e.node_from in self.nodes:
-                    sequence.insert(0, e.label)
-                    sequence.insert(0, e.node_from.label)
+                    sequence.appendleft(e.label)
+                    sequence.appendleft(e.node_from.label)
                     self.__exas_backward_dfs(e.node_from, last_node, sequence, exas_feature)
-                    del sequence[0]
-                    del sequence[0]
+                    sequence.popleft()
+                    sequence.popleft()
 
     def __exas_forward_dfs(self, node, sequence, exas_feature):
         logger.debug('Entering forward dfs', show_pid=True)
@@ -152,8 +153,8 @@ class Fragment:
                     sequence.append(e.label)
                     sequence.append(e.node_to.label)
                     self.__exas_forward_dfs(e.node_to, sequence, exas_feature)
-                    del sequence[-1]
-                    del sequence[-1]
+                    sequence.pop()
+                    sequence.pop()
 
     def get_label_to_ext_list(self):
         adjacent_nodes = set()
@@ -175,6 +176,7 @@ class Fragment:
                     self._add_extension(label_to_extensions, node)
                 else:
                     defs = node.get_definitions()
+                    # Does it mean that patterns do not extend to var-refs?
                     if not defs:
                         non_refs = node.get_out_nodes(excluded_labels=[LinkType.REFERENCE, LinkType.MAP])
                         if non_refs.intersection(set(self.nodes)):
@@ -314,6 +316,7 @@ class Fragment:
     def overlap(self, fragment):
         intersection = set(self.nodes).intersection(set(fragment.nodes))  # todo: performance analysis
         for node in intersection:
+            # WHY?
             if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                 return True
         return False
