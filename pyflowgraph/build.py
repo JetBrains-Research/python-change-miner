@@ -791,6 +791,7 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_For(self, node):
         control_node = ControlNode(ControlNode.Label.FOR, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
         fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
@@ -802,6 +803,7 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_While(self, node):
         control_node = ControlNode(ControlNode.Label.WHILE, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
         fg = self.visit(node.test)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
