@@ -16,9 +16,7 @@ class ExasFeature:
     Read more: "Accurate and Efficient Structural Characteristic Feature Extraction"
     """
 
-    # There was: MAX_LENGTH = 2 ** 3 - 1
-    # But according to the specified paper, "N = 4 gives the precision of almost 100%"
-    MAX_LENGTH = 4
+    MAX_LENGTH = 5
 
     edge_label_to_feature_id = {
         LinkType.QUALIFIER: 0,
