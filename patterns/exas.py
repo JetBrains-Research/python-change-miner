@@ -16,7 +16,7 @@ class ExasFeature:
     Read more: "Accurate and Efficient Structural Characteristic Feature Extraction"
     """
 
-    MAX_LENGTH = 5
+    MAX_LENGTH = 7
 
     edge_label_to_feature_id = {
         LinkType.QUALIFIER: 0,
