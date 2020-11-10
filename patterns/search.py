@@ -80,12 +80,13 @@ class Miner:
                 continue
 
             fragments = set([Fragment.create_from_node_pair(pair) for pair in pairs])
-            pattern = Pattern(fragments, len(fragments))
-            pattern = pattern.extend()
+            initial_pattern = Pattern(fragments, len(fragments))
+            extended_patterns = initial_pattern.extend()
 
-            if pattern.is_change() and pattern.size >= self.MIN_PATTERN_SIZE:
-                self.add_pattern(pattern)
-                logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
+            for pattern in extended_patterns:
+                if pattern.is_change() and pattern.size >= self.MIN_PATTERN_SIZE:
+                    self.add_pattern(pattern)
+                    logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
 
             logger.warning(f'Done looking at node pair #{num+1}')
 

@@ -3,8 +3,9 @@ import time
 import multiprocessing
 import functools
 from collections import deque
+from heapq import heappush, heappop
 
-from typing import Set, Optional, Dict, FrozenSet, Tuple
+from typing import Set, Optional, Dict, FrozenSet, Tuple, List, Any
 
 from log import logger
 from pyflowgraph.models import LinkType, Node
@@ -355,7 +356,10 @@ class Pattern:
     DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 3)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
+
     MAX_SIZE = settings.get('patterns_max_size', 12)
+    N_MOST_FREQ = settings.get('patterns_n_most_freq_groups', 3)
+    WIDE_EXTENSION_MAX_DEPTH = settings.get('wide_extension_max_depth', 2)
 
     def __init__(self, fragments, freq=None):
         self.id: Optional[int] = None  # unset until the pattern is not added to a miner
@@ -387,32 +391,44 @@ class Pattern:
         logger.warning(f'Dict label_to_fragment_to_ext_list with '
                        f'{len(label_to_fragment_to_ext_list.items())} items was constructed', start_time=start_time)
 
-        freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
-
-        if freq_group and len(next(iter(freq_group)).nodes) <= Pattern.MAX_SIZE and freq >= Pattern.MIN_FREQUENCY:
-            extended_pattern = Pattern(freq_group, freq)
-            new_nodes = []
-            for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
-                new_nodes.append(extended_pattern.repr.nodes[ix])
-
-            old_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in self.repr.nodes]) + '\n'
-            new_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in new_nodes]) + '\n'
-
-            logger.info(f'Pattern with old nodes: {old_nodes_s}'
-                        f'was extended with new nodes: {new_nodes_s}'
-                        f'new size={extended_pattern.size}, '
-                        f'fragments cnt={len(extended_pattern.fragments)}, '
-                        f'iteration = {iteration}')
-
-            return extended_pattern.extend(iteration=iteration + 1)
+        if iteration <= Pattern.WIDE_EXTENSION_MAX_DEPTH:
+            n_most_freq = Pattern.N_MOST_FREQ
         else:
-            logger.log(logger.WARNING, f'Done extend() for a pattern')
-            return self
+            n_most_freq = 1
+        freq_groups_with_freqs = self._get_most_freq_groups_and_freqs(label_to_fragment_to_ext_list, n_most_freq)
 
-    def _get_most_freq_group_and_freq(self, label_to_fragment_to_ext_list):
+        patterns = []
+        has_extended = False
+        for freq_group, freq in freq_groups_with_freqs:
+            if freq_group and len(
+                    next(iter(freq_group)).nodes) <= Pattern.MAX_SIZE and freq >= Pattern.MIN_FREQUENCY:
+                extended_pattern = Pattern(freq_group, freq)
+                new_nodes = []
+                for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
+                    new_nodes.append(extended_pattern.repr.nodes[ix])
+
+                old_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in self.repr.nodes]) + '\n'
+                new_nodes_s = '\n' + '\n'.join([f'\t{node}' for node in new_nodes]) + '\n'
+
+                logger.info(f'Pattern with old nodes: {old_nodes_s}'
+                            f'was extended with new nodes: {new_nodes_s}'
+                            f'new size={extended_pattern.size}, '
+                            f'fragments cnt={len(extended_pattern.fragments)}, '
+                            f'iteration = {iteration}')
+
+                patterns.extend(extended_pattern.extend(iteration=iteration + 1))
+                has_extended = True
+
+        if not has_extended:
+            logger.log(logger.WARNING, f'Done extend() for a pattern')
+            patterns.append(self)
+
+        return patterns
+
+    def _get_most_freq_groups_and_freqs(self, label_to_fragment_to_ext_list, n_most_freq=3) -> List[Tuple[Any, int]]:
         logger.warning(f'Processing label_to_fragment_to_ext_list to get the most freq group')
         if not label_to_fragment_to_ext_list:
-            return None, -1
+            return [(None, -1)]
 
         start_time = time.time()
 
@@ -432,21 +448,27 @@ class Pattern:
                         if curr_freq > freq:  # todo plus lattice, getting most frequent group one more time
                             freq_group = curr_group
                             freq = curr_freq
+                freq_groups_with_freqs = [(freq_group, freq)]  # todo: fix priority queue for multiprocessing case
                 has_result = True
             except:
                 logger.error('Unable to process freq groups in the async mode', exc_info=True)
 
         if not has_result:
+            freq_groups_with_freqs = []
             for label_num, (label, fragment_to_ext_list) in enumerate(label_to_fragment_to_ext_list.items()):
                 curr_group, curr_freq = self._get_most_freq_group_and_freq_in_label(
-                    len(label_to_fragment_to_ext_list), (label_num, (label, fragment_to_ext_list)))
+                    labels_cnt=len(label_to_fragment_to_ext_list),
+                    data=(label_num, (label, fragment_to_ext_list))
+                )
 
-                if curr_freq > freq:
-                    freq_group = curr_group
-                    freq = curr_freq
+                heappush(freq_groups_with_freqs, (curr_freq, curr_group))
+                if len(freq_groups_with_freqs) > n_most_freq:
+                    heappop(freq_groups_with_freqs)
 
-        logger.warning(f'The most freq group has freq={freq} and fr cnt={len(freq_group)}', start_time=start_time)
-        return freq_group, freq
+        freq_groups_with_freqs = [(freq_group, freq) for freq, freq_group in freq_groups_with_freqs]
+        logger.warning(f'The most frequent groups has freqs={[freq for _, freq in freq_groups_with_freqs]}',
+                       start_time=start_time)
+        return freq_groups_with_freqs
 
     def _get_most_freq_group_and_freq_in_label(self, labels_cnt, data):
         label_index, (label, fragment_to_ext_list) = data
