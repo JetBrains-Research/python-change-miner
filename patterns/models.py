@@ -18,6 +18,7 @@ class CharacteristicVector:
     """
     Characteristic vector is built by exas features' occurrences
     """
+
     def __init__(self):
         self.data = {}
 
@@ -354,6 +355,7 @@ class Pattern:
     DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 3)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
+    MAX_SIZE = settings.get('patterns_max_size', 12)
 
     def __init__(self, fragments, freq=None):
         self.id: Optional[int] = None  # unset until the pattern is not added to a miner
@@ -387,9 +389,8 @@ class Pattern:
 
         freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
-        if freq >= Pattern.MIN_FREQUENCY:
+        if freq_group and len(next(iter(freq_group)).nodes) <= Pattern.MAX_SIZE and freq >= Pattern.MIN_FREQUENCY:
             extended_pattern = Pattern(freq_group, freq)
-
             new_nodes = []
             for ix in range(len(self.repr.nodes), len(extended_pattern.repr.nodes)):
                 new_nodes.append(extended_pattern.repr.nodes[ix])
@@ -403,7 +404,7 @@ class Pattern:
                         f'fragments cnt={len(extended_pattern.fragments)}, '
                         f'iteration = {iteration}')
 
-            return extended_pattern.extend(iteration=iteration+1)
+            return extended_pattern.extend(iteration=iteration + 1)
         else:
             logger.log(logger.WARNING, f'Done extend() for a pattern')
             return self
@@ -422,7 +423,8 @@ class Pattern:
         if self.DO_ASYNC_MINING:
             try:
                 with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
-                    fn = functools.partial(self._get_most_freq_group_and_freq_in_label, len(label_to_fragment_to_ext_list))
+                    fn = functools.partial(self._get_most_freq_group_and_freq_in_label,
+                                           len(label_to_fragment_to_ext_list))
 
                     for curr_group, curr_freq in pool.imap_unordered(
                             fn, enumerate(label_to_fragment_to_ext_list.items()), chunksize=1):
@@ -455,7 +457,7 @@ class Pattern:
                 ext_fragment = Fragment.create_extended(fragment, ext)
                 ext_fragments.add(ext_fragment)
 
-        logger.warning(f'Extending for label #{label}# [{1+label_index}/{labels_cnt}] '
+        logger.warning(f'Extending for label #{label}# [{1 + label_index}/{labels_cnt}] '
                        f'ext fragments = {len(ext_fragments)}', show_pid=True)
 
         is_giant = self._is_giant_extension(ext_fragments)
