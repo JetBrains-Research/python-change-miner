@@ -413,6 +413,19 @@ def test_complex_example10():
 
 
 if __name__ == '__main__':
+    PYTHON_BIN_ENV_VAR = "GUMTREE_PYTHON_BIN"
+    PYPARSER_ENV_VAR = "GUMTREE_PYPARSER_PATH"
+    PYTHON_BIN_VALUE = "python3"
+
+    project_directory = os.path.dirname(os.getcwd())
+    pyparser_path = project_directory + '/external/pyparser.py'
+
+    if os.getenv(PYTHON_BIN_ENV_VAR) is None:
+        os.environ[PYTHON_BIN_ENV_VAR] = PYTHON_BIN_VALUE;
+
+    if os.getenv(PYPARSER_ENV_VAR) is None:
+        os.environ[PYPARSER_ENV_VAR] = pyparser_path;
+
     test_complex_example10()
     test_complex_example9()
     test_complex_example8()
