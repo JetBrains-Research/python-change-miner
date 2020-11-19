@@ -11,6 +11,7 @@ from log import logger
 from patterns import Miner
 from patterns.models import Fragment, Pattern
 from vcs.traverse import GitAnalyzer, RepoInfo, Method
+from deployment import  set_all_environment_variables
 
 import pyflowgraph
 import changegraph
@@ -25,20 +26,8 @@ class RunModes:
 
     ALL = [BUILD_PY_FLOW_GRAPH, BUILD_CHANGE_GRAPH, COLLECT_CHANGE_GRAPHS, MINE_PATTERNS]
 
-def set_environment_variables(env_var, value):
-    if os.getenv(env_var) is None:
-        os.environ[env_var] = value;
-
 def main():
-    PYTHON_BIN_ENV_VAR = "GUMTREE_PYTHON_BIN"
-    PYTHON_BIN_VALUE = "python3"
-    set_environment_variables(PYTHON_BIN_ENV_VAR, PYTHON_BIN_VALUE)
-
-    PYPARSER_ENV_VAR = "GUMTREE_PYPARSER_PATH"
-    project_directory = os.path.dirname(os.getcwd())
-    pyparser_path = os.path.join(project_directory, 'external', 'pyparser.py')
-    set_environment_variables(PYPARSER_ENV_VAR, pyparser_path)
-
+    set_all_environment_variables()
 
     logger.info('------------------------------ Starting ------------------------------')
 
