@@ -17,6 +17,7 @@ class CharacteristicVector:
     """
     Characteristic vector is built by exas features' occurrences
     """
+
     def __init__(self):
         self.data = {}
 
@@ -400,7 +401,7 @@ class Pattern:
                         f'fragments cnt={len(extended_pattern.fragments)}, '
                         f'iteration = {iteration}')
 
-            return extended_pattern.extend(iteration=iteration+1)
+            return extended_pattern.extend(iteration=iteration + 1)
         else:
             logger.log(logger.WARNING, f'Done extend() for a pattern')
             return self
@@ -419,7 +420,8 @@ class Pattern:
         if self.DO_ASYNC_MINING:
             try:
                 with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
-                    fn = functools.partial(self._get_most_freq_group_and_freq_in_label, len(label_to_fragment_to_ext_list))
+                    fn = functools.partial(self._get_most_freq_group_and_freq_in_label,
+                                           len(label_to_fragment_to_ext_list))
 
                     for curr_group, curr_freq in pool.imap_unordered(
                             fn, enumerate(label_to_fragment_to_ext_list.items()), chunksize=1):
@@ -452,7 +454,7 @@ class Pattern:
                 ext_fragment = Fragment.create_extended(fragment, ext)
                 ext_fragments.add(ext_fragment)
 
-        logger.warning(f'Extending for label #{label}# [{1+label_index}/{labels_cnt}] '
+        logger.warning(f'Extending for label #{label}# [{1 + label_index}/{labels_cnt}] '
                        f'ext fragments = {len(ext_fragments)}', show_pid=True)
 
         is_giant = self._is_giant_extension(ext_fragments)

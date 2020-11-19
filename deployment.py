@@ -1,8 +1,10 @@
 import os
 
+
 def set_environment_variable(env_var, value):
     if os.getenv(env_var) is None:
-        os.environ[env_var] = value;
+        os.environ[env_var] = value
+
 
 def set_all_environment_variables():
     PYTHON_BIN_ENV_VAR = "GUMTREE_PYTHON_BIN"
