@@ -61,8 +61,9 @@ class Miner:
                 if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
 
-                if not (node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL):
-                        # or node.kind == ChangeNode.Kind.CONTROL_NODE):
+                if not (
+                        node.kind == ChangeNode.Kind.OPERATION_NODE and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL):
+                    # or node.kind == ChangeNode.Kind.CONTROL_NODE):
                     continue
 
                 label = f'{node.label}~{node.mapped.label}'
@@ -72,7 +73,7 @@ class Miner:
         logger.warning(f'Total pairs after the first step = {len(label_to_node_pairs.values())}')
 
         for num, pairs in enumerate(label_to_node_pairs.values()):
-            logger.warning(f'Looking at node pair #{num+1}')
+            logger.warning(f'Looking at node pair #{num + 1}')
 
             if len(pairs) < Pattern.MIN_FREQUENCY:
                 logger.warning('Skipping...')
@@ -86,7 +87,7 @@ class Miner:
                 self.add_pattern(pattern)
                 logger.warning(f'Pattern #{pattern.id} with size {pattern.size} was added')
 
-            logger.warning(f'Done looking at node pair #{num+1}')
+            logger.warning(f'Done looking at node pair #{num + 1}')
 
         logger.warning(f'Done patterns\' mining, total count = {self._patterns_cnt}')
 

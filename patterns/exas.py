@@ -1,7 +1,7 @@
 from pyflowgraph.models import LinkType
 
-
 import sys
+
 HALF_N = sys.maxsize // 2
 N = HALF_N * 2
 

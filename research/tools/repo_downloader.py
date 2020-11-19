@@ -6,14 +6,13 @@ import re
 
 import settings
 
-
 _GITHUB_BASE_URL = 'https://api.github.com'
 _REPO_DIR = settings.get('research_repo_dir', os.getcwd())
 _REPO_CNT = settings.get('research_repo_count', 10)
 
 _MIN_STARS = settings.get('research_min_stars', 15)
 _STARS_STEP = settings.get('research_stars_step', 500)
-_MAX_STARS = settings.get('research_max_stars', 10**9)
+_MAX_STARS = settings.get('research_max_stars', 10 ** 9)
 _STAR_BASED_SEARCH = settings.get('research_star_based_search', True)
 _REPOS_PER_STAR = settings.get('research_repos_per_star', 3)
 
@@ -34,8 +33,8 @@ def main():
             break
 
         q = ''
-        if _STAR_BASED_SEARCH and stars < 10**9:
-            q = f'+stars:{stars}..{stars+_STARS_STEP}'
+        if _STAR_BASED_SEARCH and stars < 10 ** 9:
+            q = f'+stars:{stars}..{stars + _STARS_STEP}'
         q = f'language:{_QUERY_LANGUAGE}{q}&sort=stars&order=desc'
 
         headers = {'Authorization': f'token {_TOKEN}'} if _TOKEN else None

@@ -31,7 +31,7 @@ def parse_file(filename):
         localize(node, json_node)
         return pos
 
-    def traverse_list(l, node_type = 'list', node = None):
+    def traverse_list(l, node_type='list', node=None):
         pos = len(json_tree)
         json_node = {}
         json_tree.append(json_node)
@@ -64,7 +64,7 @@ def parse_file(filename):
         elif isinstance(node, ast.alias):
             json_node['value'] = (node.name)
             if node.asname:
-                children.append(gen_identifier(node.asname, node = node))
+                children.append(gen_identifier(node.asname, node=node))
         elif isinstance(node, ast.FunctionDef):
             json_node['value'] = (node.name)
         elif isinstance(node, ast.ExceptHandler):
@@ -77,7 +77,7 @@ def parse_file(filename):
                 json_node['value'] = (node.module)
         elif isinstance(node, ast.Global):
             for n in node.names:
-                children.append(gen_identifier(n, node = node))
+                children.append(gen_identifier(n, node=node))
         elif isinstance(node, ast.keyword):
             json_node['value'] = (node.arg)
         elif isinstance(node, ast.arg):
@@ -133,7 +133,9 @@ def parse_file(filename):
         else:
             # Default handling: iterate over children.
             for child in ast.iter_child_nodes(node):
-                if isinstance(child, ast.expr_context) or isinstance(child, ast.operator) or isinstance(child, ast.boolop) or isinstance(child, ast.unaryop) or isinstance(child, ast.cmpop):
+                if isinstance(child, ast.expr_context) or isinstance(child, ast.operator) or isinstance(child,
+                                                                                                        ast.boolop) or isinstance(
+                        child, ast.unaryop) or isinstance(child, ast.cmpop):
                     # Directly include expr_context, and operators into the type instead of creating a child.
                     json_node['type'] = json_node['type'] + type(child).__name__
                 else:
@@ -153,6 +155,7 @@ def parse_file(filename):
 
 def json2xml(tree):
     lines = []
+
     def convert_node(i, indent_level=0):
         node = tree[i]
         line = "\t" * indent_level + "<{}".format(node['type'])

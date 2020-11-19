@@ -1,7 +1,8 @@
 import graphviz as gv
 import os
 
-from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, EntryNode
+from pyflowgraph.models import ExtControlFlowGraph, DataNode, OperationNode, ControlNode, ControlEdge, DataEdge, \
+    EntryNode
 
 
 def _get_label_and_attrs(node, show_op_kind=True, show_data_keys=False):
@@ -29,7 +30,6 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str,
                              show_op_kinds=True, show_data_keys=False, show_control_branch=False,
                              separate_mapped=True, show_entry_node=True,
                              min_statement_num=None, max_statement_num=None):
-
     vg = gv.Digraph(name=file_name, format='pdf')
 
     used = {}

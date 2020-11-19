@@ -31,7 +31,7 @@ def search_file(pattern, from_time=None, excluded_files=None):
             lines = [line for line in f]
 
         for lo, line in enumerate(lines):
-            logging.warning(f'Line [{lo+1}/{len(lines)}]')
+            logging.warning(f'Line [{lo + 1}/{len(lines)}]')
 
             if not line.startswith('['):
                 if last_result:
