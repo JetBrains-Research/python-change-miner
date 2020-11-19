@@ -2,6 +2,7 @@ import tempfile
 import os
 
 import changegraph
+from deployment import set_all_environment_variables
 import tests.utils as utils
 from log import logger
 
@@ -411,8 +412,9 @@ def test_complex_example10():
         'x.skew': 1+0
     }
 
-
 if __name__ == '__main__':
+    set_all_environment_variables()
+
     test_complex_example10()
     test_complex_example9()
     test_complex_example8()

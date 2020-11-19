@@ -11,6 +11,7 @@ from log import logger
 from patterns import Miner
 from patterns.models import Fragment, Pattern
 from vcs.traverse import GitAnalyzer, RepoInfo, Method
+from deployment import  set_all_environment_variables
 
 import pyflowgraph
 import changegraph
@@ -25,8 +26,9 @@ class RunModes:
 
     ALL = [BUILD_PY_FLOW_GRAPH, BUILD_CHANGE_GRAPH, COLLECT_CHANGE_GRAPHS, MINE_PATTERNS]
 
-
 def main():
+    set_all_environment_variables()
+
     logger.info('------------------------------ Starting ------------------------------')
 
     if settings.get('use_stackimpact', required=False):
