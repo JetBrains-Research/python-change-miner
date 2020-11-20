@@ -327,6 +327,35 @@ class ASTVisitorHelper:
 
             return val_fg, [var_node]
 
+        elif isinstance(target, ast.Subscript):
+            var_name = ast_utils.get_node_full_name(target)
+
+            val_fg = prepared_value
+            var_node = DataNode(var_name, target,kind=DataNode.Kind.VARIABLE_DECL)
+
+            sink_nums = []
+            for sink in val_fg.sinks:
+                sink.update_property(Node.Property.DEF_FOR, [var_node.statement_num])
+                sink_nums.append(sink.statement_num)
+            var_node.set_property(Node.Property.DEF_BY, sink_nums)
+
+            val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
+
+
+            arr_fg = self.visitor.visit(target.value)
+            slice_fg = self.visitor.visit(target.slice)
+
+            val_fg.merge_graph(arr_fg)
+            val_fg.merge_graph(slice_fg)
+
+            for node in arr_fg.nodes:
+                node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+            for node in slice_fg.nodes:
+                node.create_edge(var_node, link_type=LinkType.PARAMETER)
+
+            return val_fg, [var_node]
+
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
             vars = []
             if isinstance(prepared_value, ExtControlFlowGraph):  # for function calls TODO: think about tree mapping
@@ -368,6 +397,8 @@ class ASTVisitorHelper:
         target is used for structure definition only
         """
         if isinstance(target, ast.Name) or isinstance(target, ast.arg) or isinstance(target, ast.Attribute):
+            return self.visitor.visit(value)
+        elif isinstance(target, ast.Subscript):
             return self.visitor.visit(value)
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
             prepared_arr = []
