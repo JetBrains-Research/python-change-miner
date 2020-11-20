@@ -86,6 +86,7 @@ def test_controls_switching():
     _test_if_else_return()
     _test_if_if_return()
     _test_for()
+    _test_assert()
 
 
 def _find_after_print(fg):
@@ -198,6 +199,15 @@ def _test_for():
     control, branch_kind = p.control_branch_stack[-1]
     assert (control.label, branch_kind) == ('START', True)
 
+def _test_assert():
+    fg = _build_fg("""
+            a = 10
+            assert a < 10          
+            print('after')
+        """)
+    p = _find_after_print(fg)
+    control, branch_kind = p.control_branch_stack[-1]
+    assert (control.label, branch_kind) == ('assert', True)
 
 def test_closure():
     _test_return_in_ifs_closure()

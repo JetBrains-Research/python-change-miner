@@ -839,6 +839,19 @@ class ASTVisitor(ast.NodeVisitor):
         fg.statement_sources.clear()  # todo: bad workaround
         return fg
 
+    def visit_Assert(self, node):
+        control_node = ControlNode(ControlNode.Label.ASSERT, node, self.control_branch_stack)
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
+
+        if node.msg:
+            fg2 = self.visit(node.msg) if node.msg else self.create_graph()
+            fg2.add_node(control_node, link_type=LinkType.PARAMETER)
+            fg.merge_graph(fg2, link_node=control_node)
+
+        self._switch_control_branch(control_node, True)
+        return fg
+
     def _visit_control_node_body(self, control_node, statements, new_branch_kind, replace_control=False):
         self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
         fg = self.create_graph()

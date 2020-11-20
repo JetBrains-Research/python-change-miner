@@ -199,8 +199,9 @@ class ControlNode(StatementNode):
         WHILE = 'while'
         TRY = 'try'
         EXCEPT = 'except'
+        ASSERT = 'assert'
 
-        ALL = [IF, FOR, TRY, EXCEPT]
+        ALL = [IF, FOR, TRY, EXCEPT, ASSERT]
 
     def __init__(self, label, ast, control_branch_stack, /):
         super().__init__(label, ast, control_branch_stack)
