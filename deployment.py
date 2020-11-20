@@ -11,5 +11,5 @@ def set_all_environment_variables():
 
     PYPARSER_ENV_VAR = "GUMTREE_PYPARSER_PATH"
     project_directory = os.path.dirname(os.getcwd())
-    pyparser_path = os.path.join(project_directory, 'external', 'pyparser.py')
+    pyparser_path = os.path.join(project_directory, 'external', 'pythonparser_3.py')
     set_environment_variable(PYPARSER_ENV_VAR, pyparser_path)

@@ -39,14 +39,14 @@ class GumTree:
         MOVE = 'move'
 
     class TypeLabel:
-        NAME_STORE = 'NameStore'
-        NAME_LOAD = 'NameLoad'
+        NAME_STORE = 'Name_Store'
+        NAME_LOAD = 'Name_Load'
         FUNC_CALL = 'Call'
         FUNC_DEF = 'FunctionDef'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
-        ATTRIBUTE_STORE = 'AttributeStore'
-        ATTRIBUTE_LOAD ='AttributeLoad'
+        ATTRIBUTE_STORE = 'Attribute_Store'
+        ATTRIBUTE_LOAD ='Attribute_Load'
         ATTR = 'attr'
         RETURN = 'Return'
         ARGS = 'arguments'
