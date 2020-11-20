@@ -303,6 +303,30 @@ class ASTVisitorHelper:
             var_node.set_property(Node.Property.DEF_CONTROL_BRANCH_STACK, op_node.control_branch_stack)
 
             return val_fg, [var_node]
+
+        elif isinstance(target, ast.Attribute):
+            var_name = ast_utils.get_node_full_name(target)
+            var_key = ast_utils.get_node_key(target)
+
+            val_fg = prepared_value
+            var_node = DataNode(var_name, target, key=var_key, kind=DataNode.Kind.VARIABLE_DECL)
+
+            sink_nums = []
+            for sink in val_fg.sinks:
+                sink.update_property(Node.Property.DEF_FOR, [var_node.statement_num])
+                sink_nums.append(sink.statement_num)
+            var_node.set_property(Node.Property.DEF_BY, sink_nums)
+
+            val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
+
+            fg = self.visitor.visit(target.value)
+            val_fg.merge_graph(fg)
+            for node in fg.nodes:
+                node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+
+            return val_fg, [var_node]
+
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
             vars = []
             if isinstance(prepared_value, ExtControlFlowGraph):  # for function calls TODO: think about tree mapping
@@ -343,7 +367,7 @@ class ASTVisitorHelper:
         """
         target is used for structure definition only
         """
-        if isinstance(target, ast.Name) or isinstance(target, ast.arg):
+        if isinstance(target, ast.Name) or isinstance(target, ast.arg) or isinstance(target, ast.Attribute):
             return self.visitor.visit(value)
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
             prepared_arr = []

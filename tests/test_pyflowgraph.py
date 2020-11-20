@@ -6,6 +6,7 @@ def test_graph_building():
     _build_var_decl()
     _build_var_decl_ref()
     _build_variable_tuple_decl()
+    _build_attribute_decl()
     _build_attribute_call()
     _build_attribute_refs_test()
     _build_attribute_ref_after_call()
@@ -35,6 +36,11 @@ def _build_variable_tuple_decl():
     """)
     assert len(fg.nodes) == 7  # start, var, assign, lit, lit, lit, tpl
 
+def _build_attribute_decl():
+    fg = _build_fg("""
+            a.b.c = 1
+        """)
+    assert len(fg.nodes) == 6  # start, a, a.b, a.b.c, assign, lit
 
 def _build_attribute_call():
     fg = _build_fg("""
@@ -52,7 +58,7 @@ def _build_attribute_refs_test():
         a = (self.field.value, value)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'=', 'self', 'self.field', '14', 'START', 'Tuple', 'value', 'self.field.value', 'a'}
+    expected_labels = {'=', 'self', 'self.field', '14', 'START', 'Tuple', 'value', 'self.field.value', 'a', '20'}
     assert labels == expected_labels
 
 
@@ -234,7 +240,6 @@ def _test_return_in_ifs_closure():
             kind_to_cnt[e.branch_kind] += 1
 
     assert kind_to_cnt[True] == 6 and kind_to_cnt[False] == 2
-
 
 if __name__ == '__main__':
     test_graph_building()
