@@ -521,7 +521,7 @@ class ASTVisitor(ast.NodeVisitor):
         var_node = next(iter(fg.nodes))
         var_node.set_property(
             Node.Property.SYNTAX_TOKEN_INTERVALS,
-            [[node.first_token.startpos, node.first_token.startpos+len(node.first_token.line.strip())]])
+            [[node.first_token.startpos, node.first_token.startpos + len(node.first_token.line.strip())]])
         return fg
 
     def visit_Expr(self, node):
@@ -778,7 +778,8 @@ class ASTVisitor(ast.NodeVisitor):
     # Control statement visits
     def visit_If(self, node):
         control_node = ControlNode(ControlNode.Label.IF, node, self.control_branch_stack)
-        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
         # todo: there is no else keyword tokens in parsed ast tokens
 
         fg = self.visit(node.test)
@@ -791,6 +792,8 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_For(self, node):
         control_node = ControlNode(ControlNode.Label.FOR, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
         fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
@@ -802,6 +805,8 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_While(self, node):
         control_node = ControlNode(ControlNode.Label.WHILE, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
         fg = self.visit(node.test)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
@@ -813,7 +818,8 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_Try(self, node):  # todo: finally, else?
         control_node = ControlNode(ControlNode.Label.TRY, node, self.control_branch_stack)
-        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
 
         fg = self.create_graph()
         fg.add_node(control_node, link_type=LinkType.CONDITION)
@@ -831,7 +837,8 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_ExceptHandler(self, node):
         control_node = ControlNode(ControlNode.Label.EXCEPT, node, self.control_branch_stack)
-        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[node.first_token.startpos, node.first_token.endpos]])
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
 
         fg = self.visit(node.type) if node.type else self.create_graph()
         fg.add_node(control_node, link_type=LinkType.PARAMETER)
@@ -887,7 +894,8 @@ class ASTVisitor(ast.NodeVisitor):
         return self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE, reset_variables=True)
 
     def visit_Return(self, node):
-        return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN, reset_variables=True)
+        return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN,
+                                        reset_variables=True)
 
     def visit_Continue(self, node):
         return self._visit_dep_resetter(OperationNode.Label.CONTINUE, node, OperationNode.Kind.CONTINUE)

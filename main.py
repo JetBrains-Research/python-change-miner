@@ -11,7 +11,7 @@ from log import logger
 from patterns import Miner
 from patterns.models import Fragment, Pattern
 from vcs.traverse import GitAnalyzer, RepoInfo, Method
-from deployment import  set_all_environment_variables
+from deployment import set_all_environment_variables
 
 import pyflowgraph
 import changegraph
@@ -23,8 +23,8 @@ class RunModes:
     BUILD_CHANGE_GRAPH = 'cg'
     COLLECT_CHANGE_GRAPHS = 'collect-cgs'
     MINE_PATTERNS = 'patterns'
-
     ALL = [BUILD_PY_FLOW_GRAPH, BUILD_CHANGE_GRAPH, COLLECT_CHANGE_GRAPHS, MINE_PATTERNS]
+
 
 def main():
     set_all_environment_variables()
@@ -39,7 +39,7 @@ def main():
             app_version=str(datetime.datetime.now())
         )
 
-    sys.setrecursionlimit(2**31-1)
+    sys.setrecursionlimit(2 ** 31 - 1)
     multiprocessing.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser()
@@ -127,7 +127,7 @@ def main():
                     logger.warning(f'Incorrect file {file_path}')
 
                 if file_num % 1000 == 0:
-                    logger.warning(f'Loaded [{1+file_num}/{len(file_names)}] files')
+                    logger.warning(f'Loaded [{1 + file_num}/{len(file_names)}] files')
             logger.warning('Pattern mining has started')
 
             miner = Miner()

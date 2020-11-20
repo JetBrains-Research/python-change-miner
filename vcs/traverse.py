@@ -111,7 +111,7 @@ class GitAnalyzer:
                     'email': commit.author.email,
                     'name': commit.author.name
                 } if commit.author else None,
-                'num': len(commits)+1,
+                'num': len(commits) + 1,
                 'hash': commit.hash,
                 'dtm': commit.committer_date,
                 'msg': commit.msg,
