@@ -12,7 +12,6 @@ class ChangeNode:  # todo: create base class for pfg and cg
 
     class Property:
         SYNTAX_TOKEN_INTERVALS = Node.Property.SYNTAX_TOKEN_INTERVALS
-
         ALL = [SYNTAX_TOKEN_INTERVALS]
 
     def set_property(self, prop, value):

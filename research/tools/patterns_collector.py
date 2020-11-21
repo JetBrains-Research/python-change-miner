@@ -5,7 +5,6 @@ import shutil
 import settings
 from patterns import Miner
 
-
 _BASE_URL = settings.get('research_patterns_site_base_url')
 _IN_DIR = settings.get('research_patterns_in_dir')
 _OUT_DIR = settings.get('research_patterns_out_dir')

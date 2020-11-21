@@ -46,7 +46,7 @@ class GumTree:
         ASSIGN = 'Assign'
         EXPR = 'Expr'
         ATTRIBUTE_STORE = 'Attribute_Store'
-        ATTRIBUTE_LOAD ='Attribute_Load'
+        ATTRIBUTE_LOAD = 'Attribute_Load'
         ATTR = 'attr'
         RETURN = 'Return'
         ARGS = 'arguments'
@@ -88,7 +88,7 @@ class GumTree:
         self.nodes.append(node)
         self.node_id_to_node[node.id] = node
 
-        return node, val+1
+        return node, val + 1
 
     def find_node(self, pos, length, start_node=None, type_label=None):
         node = start_node

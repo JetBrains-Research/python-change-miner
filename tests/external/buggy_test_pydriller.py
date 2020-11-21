@@ -17,7 +17,7 @@ def test_commits_pickling():
     print(f'Starting with {cnt_before}')
     for n, commit in enumerate(commits):
         pickle.dumps(commit)
-        print(f'#{n+1} {len(objgraph.by_type("Commit"))}')
+        print(f'#{n + 1} {len(objgraph.by_type("Commit"))}')
 
     cnt_after = len(objgraph.by_type("Commit"))
     print(f'Ending with {cnt_after}')
