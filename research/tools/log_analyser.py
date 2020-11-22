@@ -3,7 +3,7 @@ import os
 import time
 import matplotlib.pyplot as plt
 import datetime
-from collections import OrderedDict
+from collections import OrderedDict, Counter
 
 import logging
 import settings
@@ -119,7 +119,22 @@ def print_frequent_items():
         logging.warning(f'Frequency: {len(v)}')
         logging.warning(f'Stacktrace: \n{v[0]["log"]}')
 
+def assign_constructions_analysis(log_path):
+    with open(log_path, 'r+') as f:
+        lines = [line for line in f]
+    results = []
+    for lo, line in enumerate(lines):
+        if line.__contains__("Assign error"):
+            try:
+                _, target, value = line.split("_ast.")
+                target = target[: target.index(" object")]
+                value = value[: value.index(" object")]
+                results += [f"{target} - {value}"]
+            except:
+                pass
+    print(Counter(results))
 
 if __name__ == '__main__':
-    plt_items_for_seconds()
-    # print_frequent_items()
+    #plt_items_for_seconds()
+    #print_frequent_items()script_attribute.log"
+    assign_constructions_analysis(log_path="")

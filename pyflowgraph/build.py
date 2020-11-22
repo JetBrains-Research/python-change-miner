@@ -556,7 +556,9 @@ class ASTVisitor(ast.NodeVisitor):
                 fg = None
 
             if not fg:
-                logger.error(f'Unable to build pfg for expr = {st}, skipping...', exc_info=True)
+                logger.error(f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...', exc_info=True)
+                if isinstance(st, ast.Assign):
+                    logger.error(f'Assign error: targets = {st.targets}, values = {st.value}', exc_info=True)
                 continue
 
             self.fg.merge_graph(fg)
@@ -925,7 +927,9 @@ class ASTVisitor(ast.NodeVisitor):
                 st_fg = None
 
             if not st_fg:
-                logger.error(f'Unable to build pfg for expr = {st}, skipping...', exc_info=True)
+                logger.error(f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...', exc_info=True)
+                if isinstance(st, ast.Assign):
+                    logger.error(f'Assign error: targets = {st.targets}, values = {st.value}', exc_info=True)
                 continue
 
             fg.merge_graph(st_fg)
