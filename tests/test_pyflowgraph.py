@@ -10,6 +10,7 @@ def test_graph_building():
     _build_attribute_call()
     _build_attribute_refs_test()
     _build_attribute_ref_after_call()
+    _build_multiple_assign_from_attribute()
     _build_while()
 
 
@@ -36,11 +37,13 @@ def _build_variable_tuple_decl():
     """)
     assert len(fg.nodes) == 7  # start, var, assign, lit, lit, lit, tpl
 
+
 def _build_attribute_decl():
     fg = _build_fg("""
             a.b.c = 1
         """)
     assert len(fg.nodes) == 6  # start, a, a.b, a.b.c, assign, lit
+
 
 def _build_attribute_call():
     fg = _build_fg("""
@@ -68,7 +71,17 @@ def _build_attribute_ref_after_call():
         print(self.o.fn().param)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print'}
+    print(labels)
+    expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print', '14', '='}
+    assert labels == expected_labels
+
+
+def _build_multiple_assign_from_attribute():
+    fg = _build_fg("""
+            m, n = data.shape
+        """)
+    labels = {n.label for n in fg.nodes}
+    expected_labels = {'data', 'data.shape', 'n', 'm', 'START', '='}
     assert labels == expected_labels
 
 
@@ -205,6 +218,7 @@ def _test_for():
     control, branch_kind = p.control_branch_stack[-1]
     assert (control.label, branch_kind) == ('START', True)
 
+
 def _test_assert():
     fg = _build_fg("""
             a = 10
@@ -214,6 +228,18 @@ def _test_assert():
     p = _find_after_print(fg)
     control, branch_kind = p.control_branch_stack[-1]
     assert (control.label, branch_kind) == ('assert', True)
+
+
+def _test_assert():
+    fg = _build_fg("""
+            a = 10
+            assert a < 10          
+            print('after')
+        """)
+    p = _find_after_print(fg)
+    control, branch_kind = p.control_branch_stack[-1]
+    assert (control.label, branch_kind) == ('assert', True)
+
 
 def test_closure():
     _test_return_in_ifs_closure()
@@ -240,6 +266,7 @@ def _test_return_in_ifs_closure():
             kind_to_cnt[e.branch_kind] += 1
 
     assert kind_to_cnt[True] == 6 and kind_to_cnt[False] == 2
+
 
 if __name__ == '__main__':
     test_graph_building()

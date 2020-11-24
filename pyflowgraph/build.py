@@ -396,15 +396,11 @@ class ASTVisitorHelper:
         """
         target is used for structure definition only
         """
-        if isinstance(target, ast.Name) or isinstance(target, ast.arg) or isinstance(target, ast.Attribute):
-            return self.visitor.visit(value)
-        elif isinstance(target, ast.Subscript):
+        if isinstance(target, (ast.Name, ast.arg, ast.Attribute, ast.Subscript)):
             return self.visitor.visit(value)
         elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
             prepared_arr = []
-            if isinstance(value, ast.Call):
-                return self.visitor.visit(value)
-            elif isinstance(value, ast.Name):
+            if isinstance(value,( ast.Call, ast.Name, ast.Attribute)) :
                 return self.visitor.visit(value)
             else:
                 values = self._extract_collection_values(value)
@@ -556,9 +552,10 @@ class ASTVisitor(ast.NodeVisitor):
                 fg = None
 
             if not fg:
-                logger.error(f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...', exc_info=True)
+                err_msg = f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...'
                 if isinstance(st, ast.Assign):
-                    logger.error(f'Assign error: targets = {st.targets}, values = {st.value}', exc_info=True)
+                    err_msg += f'Assign error: targets = {st.targets}, values = {st.value}'
+                logger.error(err_msg, exc_info=True)
                 continue
 
             self.fg.merge_graph(fg)
@@ -927,9 +924,10 @@ class ASTVisitor(ast.NodeVisitor):
                 st_fg = None
 
             if not st_fg:
-                logger.error(f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...', exc_info=True)
+                err_msg = f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...'
                 if isinstance(st, ast.Assign):
-                    logger.error(f'Assign error: targets = {st.targets}, values = {st.value}', exc_info=True)
+                    err_msg += f'Assign error: targets = {st.targets}, values = {st.value}'
+                logger.error(err_msg, exc_info=True)
                 continue
 
             fg.merge_graph(st_fg)
