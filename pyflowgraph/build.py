@@ -331,7 +331,7 @@ class ASTVisitorHelper:
             var_name = ast_utils.get_node_full_name(target)
 
             val_fg = prepared_value
-            var_node = DataNode(var_name, target,kind=DataNode.Kind.VARIABLE_DECL)
+            var_node = DataNode(var_name, target, kind=DataNode.Kind.VARIABLE_DECL)
 
             sink_nums = []
             for sink in val_fg.sinks:
@@ -341,7 +341,6 @@ class ASTVisitorHelper:
 
             val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
             val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
-
 
             arr_fg = self.visitor.visit(target.value)
             slice_fg = self.visitor.visit(target.slice)
@@ -356,7 +355,7 @@ class ASTVisitorHelper:
 
             return val_fg, [var_node]
 
-        elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
+        elif isinstance(target, (ast.Tuple, ast.List)):  # Starred appears inside collections
             vars = []
             if isinstance(prepared_value, ExtControlFlowGraph):  # for function calls TODO: think about tree mapping
                 assign_group = self._get_assign_group(target)
@@ -398,9 +397,9 @@ class ASTVisitorHelper:
         """
         if isinstance(target, (ast.Name, ast.arg, ast.Attribute, ast.Subscript)):
             return self.visitor.visit(value)
-        elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+        elif isinstance(target, (ast.Tuple, ast.List)):
             prepared_arr = []
-            if isinstance(value,( ast.Call, ast.Name, ast.Attribute)) :
+            if isinstance(value,(ast.Call, ast.Name, ast.Attribute)) :
                 return self.visitor.visit(value)
             else:
                 values = self._extract_collection_values(value)
@@ -435,9 +434,6 @@ class ASTVisitorHelper:
             raise GraphBuildingException(f'Unsupported target node = {target}')
 
     def visit_assign(self, node, targets):
-        """
-        possible targets are Attribute-, Subscript-, Slicing-, Starred+, Name+, List+, Tuple+
-        """
         g = self.create_graph()
         op_node = OperationNode(OperationNode.Label.ASSIGN, node, self.visitor.control_branch_stack,
                                 kind=OperationNode.Kind.ASSIGN)
@@ -902,6 +898,8 @@ class ASTVisitor(ast.NodeVisitor):
 
     def visit_Assert(self, node):
         control_node = ControlNode(ControlNode.Label.ASSERT, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
         fg = self.visit(node.test)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
