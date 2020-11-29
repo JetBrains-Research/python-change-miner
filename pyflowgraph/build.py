@@ -284,7 +284,7 @@ class ASTVisitorHelper:
         return group
 
     def get_assign_graph_and_vars(self, op_node, target, prepared_value):
-        if isinstance(target, ast.Name) or isinstance(target, ast.arg):
+        if isinstance(target, (ast.Name, ast.arg)):
             var_name = ast_utils.get_node_full_name(target)
             var_key = ast_utils.get_node_key(target)
 
@@ -395,7 +395,7 @@ class ASTVisitorHelper:
         """
         target is used for structure definition only
         """
-        if isinstance(target, (ast.Name, ast.arg, ast.Attribute, ast.Subscript)):
+        if isinstance(target, (ast.Name, ast.arg, ast.Attribute, ast.Subscript, ast.Starred)):
             return self.visitor.visit(value)
         elif isinstance(target, (ast.Tuple, ast.List)):
             prepared_arr = []
@@ -415,7 +415,7 @@ class ASTVisitorHelper:
                 starred_val_list = values[starred_index:starred_index + starred_val_cnt]
 
                 if len(starred_val_list) > 0:
-                    if isinstance(starred_val_list[0], list) or isinstance(starred_val_list[0], tuple):
+                    if isinstance(starred_val_list[0], (list, tuple)):
                         starred_val_list = starred_val_list[0].elts
 
                 starred_fg = self.create_graph()
@@ -446,6 +446,7 @@ class ASTVisitorHelper:
         for target in targets:
             prepared_value = self.prepare_assign_values(target, node.value)
             fg, nodes = self.get_assign_graph_and_vars(op_node, target, prepared_value)
+            #logger.warning(f"Assign passed successfully target = {target}, value = {node.value}, line = {node.first_token.line}")
             assigned_nodes += nodes
             fgs.append(fg)
 
@@ -808,7 +809,7 @@ class ASTVisitor(ast.NodeVisitor):
         return fg
 
     def visit_Call(self, node):
-        name = ast_utils.get_node_short_name(node.func)
+        name = ast_utils.get_node_full_name(node.func)
         key = ast_utils.get_node_key(node.func)
 
         if isinstance(node.func, ast.Name):

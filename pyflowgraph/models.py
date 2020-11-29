@@ -396,7 +396,6 @@ class ExtControlFlowGraph:
 
     def map_to_gumtree(self, gt):
         from changegraph.gumtree import GumTree
-
         logger.info('Trying to stick pfg to gumtree')
         self.gumtree = gt
 
@@ -432,6 +431,11 @@ class ExtControlFlowGraph:
                 elif isinstance(node.ast, ast.FunctionDef):
                     if node.kind == DataNode.Kind.VARIABLE_DECL:
                         type_label = GumTree.TypeLabel.FUNC_DEF
+                elif isinstance(node.ast, ast.Subscript):
+                    if node.kind == DataNode.Kind.SUBSCRIPT:
+                        type_label = GumTree.TypeLabel.SUBSCRIPT_LOAD
+                    elif node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.SUBSCRIPT_STORE
                 else:
                     if node.kind == DataNode.Kind.VARIABLE_USAGE:
                         type_label = GumTree.TypeLabel.NAME_LOAD

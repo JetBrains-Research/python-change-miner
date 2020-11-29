@@ -29,7 +29,6 @@ def get_node_full_name(node):
     elif isinstance(node, ast.Attribute):
         var_id = node.attr
         curr_node = node.value
-
         while isinstance(curr_node, ast.Attribute) \
                 or isinstance(curr_node, ast.Call) and isinstance(curr_node.func, ast.Attribute):
 
@@ -47,7 +46,6 @@ def get_node_full_name(node):
             except:
                 id = get_node_full_name(curr_node)
         return id + '.' + var_id
-
     elif isinstance(node, ast.FunctionDef):
         return node.name
     elif isinstance(node, ast.Subscript):
@@ -69,33 +67,19 @@ def get_node_full_name(node):
         str = ",".join(['.' for item in node.elts])
         return "{" + str + "}"
     elif isinstance(node, ast.UnaryOp):
-        if isinstance(node.operand, ast.Constant):
-            return '.'
-        elif isinstance(node.op, ast.USub):
-            return '-' + get_node_full_name(node.operand)
-        elif isinstance(node.op, ast.Invert):
-            return '~' + get_node_full_name(node.operand)
-        else:
-            logger.error(f"UnaryOp error in get_node_full_name operation = {node.op}, operand = {node.operand}")
-            raise ValueError
+        return "UnaryOp(.)"
     elif isinstance(node, ast.Call):
         str = ",".join(['.' for item in node.args])
         return f"{node.func.id}({str})"
     elif isinstance(node, ast.BinOp):
         return "BinOp(.,.)"
+    elif isinstance(node, ast.Compare):
+        return "Compare(.,.)"
+    elif isinstance(node, ast.ExtSlice):
+        return ",".join(['.' for item in node.dims])
+    elif isinstance(node, ast.Starred):
+        return f"*{get_node_full_name(node.value)}"
     else:
         logger.error(f"get_node_full_name_error, expr written instead: Unable to proceed node = {node}, line = {node.first_token.line}")
         return "Expr"
 
-
-def get_node_short_name(node):
-    if isinstance(node, ast.Name):
-        return node.id
-    elif isinstance(node, ast.arg):
-        return node.arg
-    elif isinstance(node, ast.Attribute):
-        return node.attr
-    elif isinstance(node, ast.FunctionDef):
-        return node.name
-    else:
-        raise ValueError

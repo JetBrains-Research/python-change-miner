@@ -45,6 +45,8 @@ class GumTree:
         FUNC_DEF = 'FunctionDef'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
+        SUBSCRIPT_STORE = 'Subscript_Store'
+        SUBSCRIPT_LOAD = 'Subscript_Load'
         ATTRIBUTE_STORE = 'Attribute_Store'
         ATTRIBUTE_LOAD = 'Attribute_Load'
         ATTR = 'attr'
