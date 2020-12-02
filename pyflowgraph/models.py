@@ -3,6 +3,7 @@ from __future__ import annotations
 import ast
 from typing import Set
 
+import pyflowgraph
 from log import logger
 
 import vb_utils
@@ -166,6 +167,9 @@ class OperationNode(StatementNode):
         PASS = 'pass'
         LAMBDA = 'lambda'
         ASSIGN = '='
+        LISTCOMP = 'ListComprehension'
+        DICTCOMP = 'DictComprehension'
+        COMPREHENSION = 'comprehension'
 
     class Kind:
         COLLECTION = 'collection'
@@ -180,7 +184,8 @@ class OperationNode(StatementNode):
         UNARY = 'unary'
         BOOL = 'bool'
         BINARY = 'binary'
-
+        LISTCOMP = 'list-comp'
+        DICTCOMP = 'dict-comp'
         UNCLASSIFIED = 'unclassified'
 
     def __init__(self, label, ast, control_branch_stack, /, *, kind=None, key=None):
@@ -398,7 +403,6 @@ class ExtControlFlowGraph:
         from changegraph.gumtree import GumTree
         logger.info('Trying to stick pfg to gumtree')
         self.gumtree = gt
-
         with open(gt.source_path, 'r+') as f:
             lr = vb_utils.LineReader(''.join(f.readlines()))
 
@@ -446,7 +450,10 @@ class ExtControlFlowGraph:
                     type_label = GumTree.TypeLabel.ASSIGN
                 elif node.kind == OperationNode.Kind.FUNC_CALL:
                     type_label = GumTree.TypeLabel.FUNC_CALL
-
+                elif node.kind == OperationNode.Kind.LISTCOMP:
+                    type_label = GumTree.TypeLabel.LISTCOMP
+                elif node.kind == OperationNode.Kind.DICTCOMP:
+                    type_label = GumTree.TypeLabel.DICTCOMP
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
                 logger.info(f'FG node {node} is mapped to {found}, '

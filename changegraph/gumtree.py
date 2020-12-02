@@ -56,6 +56,8 @@ class GumTree:
         DEFAULT_ARGS = 'defaults'
         SIMPLE_ARG = 'arg'
         KEYWORD = 'keyword'
+        LISTCOMP = 'ListComp'
+        DICTCOMP = 'DictComp'
 
     def __init__(self, source_path, data):
         self.node_id_to_node = {}
