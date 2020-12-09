@@ -17,7 +17,11 @@ def get_node_key(node):
         return f'{curr_node.id}.{node_key}' if isinstance(curr_node, ast.Name) else None
     elif isinstance(node, ast.FunctionDef):
         return node.name
+    elif isinstance(node, ast.Call):
+        logger.warning(f"ast_utils: get_node_key node = {node}, line = {node.first_token.line}")
+        return get_node_key(node.func)
     else:
+        logger.error(f"ast_utils: get_node_key node = {node}, line = {node.first_token.line}")
         raise ValueError
 
 
@@ -83,3 +87,18 @@ def get_node_full_name(node):
         logger.error(f"get_node_full_name_error, expr written instead: Unable to proceed node = {node}, line = {node.first_token.line}")
         return "Expr"
 
+def get_node_short_name(node):
+    if isinstance(node, ast.Name):
+        return node.id
+    elif isinstance(node, ast.arg):
+        return node.arg
+    elif isinstance(node, ast.Attribute):
+        return node.attr
+    elif isinstance(node, ast.FunctionDef):
+        return node.name
+    elif isinstance(node, ast.Call):
+        logger.warning(f"ast_utils: get_node_short_name node = {node}, line = {node.first_token.line}")
+        return get_node_short_name(node.func)
+    else:
+        logger.error(f"ast_utils: get_node_short_name node = {node}, line = {node.first_token.line}")
+        raise ValueError
