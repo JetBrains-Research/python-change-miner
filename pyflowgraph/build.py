@@ -65,21 +65,15 @@ class GraphBuilder:
 
         ast_visitor = ASTVisitor()
 
-        try:
-            fg = ast_visitor.visit(root_ast)
+        fg = ast_visitor.visit(root_ast)
 
-            if not show_dependencies:
-                self.resolve_dependencies(fg)
+        if not show_dependencies:
+            self.resolve_dependencies(fg)
 
-            if build_closure:
-                self.build_closure(fg)
+        if build_closure:
+            self.build_closure(fg)
 
-            logger.warning(f"The flowgraph built successfully, code = {source_code}")
-            return fg
-
-        except:
-            logger.error(f"ailed to build the flowgraph, code = {source_code}")
-            return None
+        return fg
 
     def build_from_file(self, file_path, show_dependencies=False, build_closure=True):
         with open(file_path, 'r+') as f:
@@ -291,6 +285,7 @@ class ASTVisitorHelper:
         elif isinstance(node, ast.Starred):
             group.append(node.value)
         else:
+            logger.error(f'Unsupported node (unable to get assign group) = {node}')
             raise GraphBuildingException(f'Unsupported node (unable to get assign group) = {node}')
 
         return group
@@ -402,6 +397,7 @@ class ASTVisitorHelper:
         elif isinstance(collection, ast.Dict):
             return collection.keys
         else:
+            logger.error(f'Unable to extract collection values from {collection}')
             raise GraphBuildingException(f'Unable to extract collection values from {collection}')
 
     def prepare_assign_values(self, target, value):
@@ -444,6 +440,7 @@ class ASTVisitorHelper:
                     prepared_arr.append(self.prepare_assign_values(target.elts[1 + starred_index + i], val))
             return prepared_arr
         else:
+            logger.error(f'Unsupported target node = {target}')
             raise GraphBuildingException(f'Unsupported target node = {target}')
 
     def visit_assign(self, node, targets):
@@ -934,8 +931,8 @@ class ASTVisitor(ast.NodeVisitor):
         key = ast_utils.get_node_key(node.func)
 
         if isinstance(node.func, ast.Name):
-                syntax_tokens = [[node.func.first_token.startpos, node.func.last_token.endpos]]
-                return self._visit_func_call(node, name, syntax_tokens, key=key)
+            syntax_tokens = [[node.func.first_token.startpos, node.func.last_token.endpos]]
+            return self._visit_func_call(node, name, syntax_tokens, key=key)
         elif isinstance(node.func, ast.Attribute):
             attr_fg = self.visit(node.func)
 
@@ -950,7 +947,6 @@ class ASTVisitor(ast.NodeVisitor):
             logger.error(
                 f"Fail in visited node = {node}, unsupported func type = {node.func} line = {node.first_token.line}")
             return None
-            raise ValueError
 
     # Control statement visits
     def visit_If(self, node):
@@ -972,6 +968,7 @@ class ASTVisitor(ast.NodeVisitor):
             for expr in node.body:
                 line_to_log += expr.first_token.line
         logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+        return None
 
 
     def visit_For(self, node):

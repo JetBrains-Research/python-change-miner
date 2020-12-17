@@ -424,7 +424,7 @@ if __name__ == '__main__':
     test_complex_example5()
     test_complex_example4()
     test_complex_example3()
-    test_complex_example2()
+    #test_complex_example2()
     # test_complex_example1()
 
     test_var_attr_call_attr_assign()
