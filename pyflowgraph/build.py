@@ -4,12 +4,11 @@ from typing import Dict, Set
 
 from asttokens import asttokens
 
-import pyflowgraph
+import settings
 from log import logger
 from pyflowgraph import models, ast_utils
 from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, \
     EntryNode, EmptyNode, ControlEdge, StatementNode
-
 
 class BuildingContext:
     def __init__(self):
@@ -51,10 +50,12 @@ class GraphBuilder:
         models._statement_cnt = 0
         try:
             source_code_ast = ast.parse(source_code, mode='exec')
+            logger.warning(f"Parsing completed, code = {source_code}")
         except:
-            logger.error("Error in parsing")
+            logger.error(f"Error in parsing, code = {source_code}")
             ast_visitor = ASTVisitor()
             return ast_visitor.create_graph()
+
         tokenized_ast = asttokens.ASTTokens(source_code, tree=source_code_ast)
 
         if isinstance(tokenized_ast.tree, ast.Module) and isinstance(tokenized_ast.tree.body[0], ast.FunctionDef):
@@ -63,15 +64,22 @@ class GraphBuilder:
             root_ast = tokenized_ast.tree
 
         ast_visitor = ASTVisitor()
-        fg = ast_visitor.visit(root_ast)
 
-        if not show_dependencies:
-            self.resolve_dependencies(fg)
+        try:
+            fg = ast_visitor.visit(root_ast)
 
-        if build_closure:
-            self.build_closure(fg)
+            if not show_dependencies:
+                self.resolve_dependencies(fg)
 
-        return fg
+            if build_closure:
+                self.build_closure(fg)
+
+            logger.warning(f"The flowgraph built successfully, code = {source_code}")
+            return fg
+
+        except:
+            logger.error(f"ailed to build the flowgraph, code = {source_code}")
+            return None
 
     def build_from_file(self, file_path, show_dependencies=False, build_closure=True):
         with open(file_path, 'r+') as f:
@@ -353,7 +361,8 @@ class ASTVisitorHelper:
             val_fg.merge_graph(slice_fg)
 
             for node in arr_fg.nodes:
-                node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+                # node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+                node.create_edge(var_node, link_type=LinkType.REFERENCE)
             for node in slice_fg.nodes:
                 node.create_edge(var_node, link_type=LinkType.PARAMETER)
 
@@ -403,7 +412,7 @@ class ASTVisitorHelper:
             return self.visitor.visit(value)
         elif isinstance(target, (ast.Tuple, ast.List)):
             prepared_arr = []
-            if isinstance(value,(ast.Call, ast.Name, ast.Attribute)) :
+            if isinstance(value, (ast.Call, ast.Name, ast.Attribute)):
                 return self.visitor.visit(value)
             else:
                 values = self._extract_collection_values(value)
@@ -450,7 +459,6 @@ class ASTVisitorHelper:
         for target in targets:
             prepared_value = self.prepare_assign_values(target, node.value)
             fg, nodes = self.get_assign_graph_and_vars(op_node, target, prepared_value)
-            #logger.warning(f"Assign passed successfully target = {target}, value = {node.value}, line = {node.first_token.line}")
             assigned_nodes += nodes
             fgs.append(fg)
 
@@ -473,6 +481,25 @@ class ASTVisitor(ast.NodeVisitor):
 
         self.visitor_helper = ASTVisitorHelper(self)
 
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_visit)
+        log_level = settings.get("logger_file_log_level", 'INFO')
+        if log_level != 'DEBUG':
+            return visitor(node)
+        else:
+            line_to_log = node.first_token.line
+            if hasattr(node, 'body') and isinstance(node.body, list):
+                for expr in node.body:
+                    line_to_log += expr.first_token.line
+            try:
+                result = visitor(node)
+                logger.warning(f"Successfully visited node = {node}, line = {line_to_log}")
+                return result
+            except:
+                logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+                return None
     @property
     def context(self):
         return self.context_stack[-1]
@@ -567,43 +594,20 @@ class ASTVisitor(ast.NodeVisitor):
 
     # Root visits
     def visit_Module(self, node):
-        try:
-            result = self._visit_entry_node(node)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_entry_node(node)
+        return self._visit_entry_node(node)
 
     def visit_FunctionDef(self, node):
         if not self.fg.entry_node:
-            try:
-                result = self._visit_entry_node(node)
-                logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-                return result
-            except:
-                logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
             return self._visit_entry_node(node)
-        try:
-            fg = self._visit_non_assign_var_decl(node)
-            var_node = next(iter(fg.nodes))
-            var_node.set_property(
-                Node.Property.SYNTAX_TOKEN_INTERVALS,
-                [[node.first_token.startpos, node.first_token.startpos + len(node.first_token.line.strip())]])
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg = self._visit_non_assign_var_decl(node)
+        var_node = next(iter(fg.nodes))
+        var_node.set_property(
+            Node.Property.SYNTAX_TOKEN_INTERVALS,
+            [[node.first_token.startpos, node.first_token.startpos + len(node.first_token.line.strip())]])
+        return fg
 
     def visit_Expr(self, node):
-        try:
-            result = self.visit(node.value)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visit(node.value)
+        return self.visit(node.value)
 
     # Visit literals, variables and collections
     @staticmethod
@@ -613,122 +617,64 @@ class ASTVisitor(ast.NodeVisitor):
         return label
 
     def visit_Str(self, node):
-        try:
-            result = self.create_graph(node=DataNode(self._clear_literal_label(node.s), node, kind=DataNode.Kind.LITERAL))
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.create_graph(node=DataNode(self._clear_literal_label(node.s), node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.s), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Num(self, node):
-        try:
-            result = self.create_graph(node=DataNode(self._clear_literal_label(node.n), node, kind=DataNode.Kind.LITERAL))
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.create_graph(node=DataNode(self._clear_literal_label(node.n), node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.n), node, kind=DataNode.Kind.LITERAL))
 
     def visit_NameConstant(self, node):
-        try:
-            result = self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Constant(self, node):
-        try:
-            result = self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
+        return self.create_graph(node=DataNode(self._clear_literal_label(node.value), node, kind=DataNode.Kind.LITERAL))
 
     def visit_Pass(self, node):
-        try:
-            result = self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
+        return self.create_graph(node=OperationNode(OperationNode.Label.PASS, node, self.control_branch_stack))
 
     def visit_Lambda(self, node):
-        try:
-            self._switch_context(self.context.get_fork())
+        self._switch_context(self.context.get_fork())
 
-            fg = self.create_graph()
-            arg_fgs = self._visit_fn_def_arguments(node)
-            fg.parallel_merge_graphs(arg_fgs)
+        fg = self.create_graph()
+        arg_fgs = self._visit_fn_def_arguments(node)
+        fg.parallel_merge_graphs(arg_fgs)
 
-            lambda_node = DataNode(OperationNode.Label.LAMBDA, node)
-            lambda_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[
-                node.first_token.startpos, node.first_token.endpos]])
+        lambda_node = DataNode(OperationNode.Label.LAMBDA, node)
+        lambda_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[
+            node.first_token.startpos, node.first_token.endpos]])
 
-            body_fg = self.visit(node.body)
-            fg.merge_graph(body_fg)
+        body_fg = self.visit(node.body)
+        fg.merge_graph(body_fg)
 
-            fg.add_node(lambda_node, link_type=LinkType.PARAMETER, clear_sinks=True)
+        fg.add_node(lambda_node, link_type=LinkType.PARAMETER, clear_sinks=True)
 
-            self._pop_context()
-
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        self._pop_context()
+        return fg
 
     # Visit collections
     def visit_List(self, node):
-        try:
-            result = self._visit_collection(node)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_collection(node)
+        return self._visit_collection(node)
 
     def visit_Tuple(self, node):
-        try:
-            result = self._visit_collection(node)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_collection(node)
+        return self._visit_collection(node)
 
     def visit_Set(self, node):  # e.g. var = {1, 2}
-        try:
-            result = self._visit_collection(node)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_collection(node)
+        return self._visit_collection(node)
 
     def visit_Dict(self, node):
-        try:
-            fg_graphs = []
-            for n, key in enumerate(node.keys):
-                key_value_fg = self._visit_bin_op(node, key, node.values[n], op_name='Key-Value',
-                                                  op_kind=OperationNode.Kind.UNCLASSIFIED)
-                fg_graphs.append(key_value_fg)
+        fg_graphs = []
+        for n, key in enumerate(node.keys):
+            key_value_fg = self._visit_bin_op(node, key, node.values[n], op_name='Key-Value',
+                                              op_kind=OperationNode.Kind.UNCLASSIFIED)
+            fg_graphs.append(key_value_fg)
 
-            g = self.create_graph()
-            g.parallel_merge_graphs(fg_graphs)
-            op_node = OperationNode('Dict', node, self.control_branch_stack, kind=OperationNode.Kind.COLLECTION)
-            op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
-                [node.first_token.startpos, node.first_token.endpos], [node.last_token.startpos, node.last_token.endpos]])
-            g.add_node(op_node, link_type=LinkType.PARAMETER)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return g
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return g
+        g = self.create_graph()
+        g.parallel_merge_graphs(fg_graphs)
+        op_node = OperationNode('Dict', node, self.control_branch_stack, kind=OperationNode.Kind.COLLECTION)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.startpos, node.first_token.endpos],
+            [node.last_token.startpos, node.last_token.endpos]])
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
+        return g
 
     # Visit atomic nodes
     def _visit_var_usage(self, node):
@@ -740,143 +686,166 @@ class ASTVisitor(ast.NodeVisitor):
         return g
 
     def visit_Name(self, node):
-        try:
-            result = self._visit_var_usage(node)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-
-        #return self._visit_var_usage(node)
+        return self._visit_var_usage(node)
 
     def visit_Attribute(self, node):
-        try:
-            fg = self.visit(node.value)
+        fg = self.visit(node.value)
 
-            attr_name = ast_utils.get_node_full_name(node)
-            attr_key = ast_utils.get_node_key(node) if isinstance(node.ctx, ast.Load) else None
+        attr_name = ast_utils.get_node_full_name(node)
+        attr_key = ast_utils.get_node_key(node) if isinstance(node.ctx, ast.Load) else None
 
-            data_node = DataNode(attr_name, node, kind=DataNode.Kind.VARIABLE_USAGE, key=attr_key)
-            data_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
-                [node.last_token.startpos, node.last_token.endpos]])
-            fg.add_node(data_node, link_type=LinkType.QUALIFIER, clear_sinks=True)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        data_node = DataNode(attr_name, node, kind=DataNode.Kind.VARIABLE_USAGE, key=attr_key)
+        data_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.last_token.startpos, node.last_token.endpos]])
+        fg.add_node(data_node, link_type=LinkType.QUALIFIER, clear_sinks=True)
+        return fg
 
     def visit_Subscript(self, node):
-        try:
-            arr_fg = self.visit(node.value)
+        arr_fg = self.visit(node.value)
 
-            slice_fg = self.visit(node.slice)
-            name = ast_utils.get_node_full_name(node)
-            slice_node = DataNode(name, node, kind=DataNode.Kind.SUBSCRIPT)
-            slice_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [])
-            slice_fg.add_node(slice_node, link_type=LinkType.PARAMETER, clear_sinks=True)
-
-            arr_fg.merge_graph(slice_fg, link_node=next(iter(slice_fg.sinks)), link_type=LinkType.QUALIFIER)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return arr_fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return arr_fg
+        slice_fg = self.visit(node.slice)
+        name = ast_utils.get_node_full_name(node)
+        slice_node = DataNode(name, node, kind=DataNode.Kind.SUBSCRIPT)
+        slice_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [])
+        slice_fg.add_node(slice_node, link_type=LinkType.PARAMETER, clear_sinks=True)
+        arr_fg.merge_graph(slice_fg, link_node=next(iter(slice_fg.sinks)), link_type=LinkType.REFERENCE)
+        return arr_fg
 
     def visit_Index(self, node):
-        try:
-            result = self.visit(node.value)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visit(node.value)
+        return self.visit(node.value)
 
     def visit_Slice(self, node):
-        try:
-            items = [node.lower, node.step, node.upper]
-            fgs = []
-            for item in items:
-                if not item:
-                    continue
+        items = [node.lower, node.step, node.upper]
+        fgs = []
+        for item in items:
+            if not item:
+                continue
 
-                fg = self.visit(item)
-                fgs.append(fg)
+            fg = self.visit(item)
+            fgs.append(fg)
 
-            fg = self.create_graph()
-            fg.parallel_merge_graphs(fgs)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg = self.create_graph()
+        fg.parallel_merge_graphs(fgs)
+        return fg
+
+    def visit_ExtSlice(self, node):
+        fgs = []
+        for dim in node.dims:
+            fgs.append(self.visit(dim))
+
+        fg = self.create_graph()
+        fg.parallel_merge_graphs(fgs)
+        return fg
+
+    def visit_ListComp(self, node):
+        op_node = OperationNode(OperationNode.Label.LISTCOMP, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.LISTCOMP)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        elt_fg = self.visit(node.elt)
+        elt_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(elt_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+
+    def visit_DictComp(self, node):
+        op_node = OperationNode(OperationNode.Label.DICTCOMP, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.DICTCOMP)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        key_fg = self.visit(node.key)
+        key_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(key_fg)
+
+        value_fg = self.visit(node.value)
+        value_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(value_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+
+    def visit_GeneratorExp(self, node):
+        op_node = OperationNode(OperationNode.Label.GENERATOREXPR, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.GENERATOREXPR)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        elt_fg = self.visit(node.elt)
+        elt_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(elt_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+    def visit_comprehension(self, node):
+        params_fgs = []
+        op_node = OperationNode(OperationNode.Label.COMPREHENSION, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.COMPREHENSION)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]])
+        iter_fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
+        iter_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(iter_fg)
+
+        if node.ifs:
+            for each in node.ifs:
+                fg = self.visit(each)
+                fg.add_node(op_node, link_type=LinkType.CONDITION)
+                params_fgs.append(fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
 
     # Visit operations
     def visit_BinOp(self, node):
-        try:
-            result = self._visit_bin_op(node, node.left, node.right,
-                                  op_name=node.op.__class__.__name__.lower(),
-                                  op_kind=OperationNode.Kind.BINARY)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_bin_op(node, node.left, node.right,
-          #                        op_name=node.op.__class__.__name__.lower(),
-          #                        op_kind=OperationNode.Kind.BINARY)
+        return self._visit_bin_op(node, node.left, node.right,
+                               op_name=node.op.__class__.__name__.lower(),
+                               op_kind=OperationNode.Kind.BINARY)
 
     def visit_BoolOp(self, node):
-        try:
-            op_name = node.op.__class__.__name__.lower()
-            result = self._visit_op(op_name, node, OperationNode.Kind.BOOL, node.values)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_op(op_name, node, OperationNode.Kind.BOOL, node.values)
+        op_name = node.op.__class__.__name__.lower()
+        return self._visit_op(op_name, node, OperationNode.Kind.BOOL, node.values)
 
     def visit_UnaryOp(self, node):
-        try:
-            op_name = node.op.__class__.__name__
-            result = self._visit_op(op_name, node, OperationNode.Kind.UNARY, [node.operand])
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_op(op_name, node, OperationNode.Kind.UNARY, [node.operand])
+        op_name = node.op.__class__.__name__
+        return self._visit_op(op_name, node, OperationNode.Kind.UNARY, [node.operand])
 
     def visit_Assign(self, node):
-        try:
-            result = self.visitor_helper.visit_assign(node, targets=node.targets)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visitor_helper.visit_assign(node, targets=node.targets)
+        return self.visitor_helper.visit_assign(node, targets=node.targets)
 
     def visit_AnnAssign(self, node):
-        try:
-            result =self.visitor_helper.visit_assign(node, targets=[node.target])
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visitor_helper.visit_assign(node, targets=[node.target])
+        return self.visitor_helper.visit_assign(node, targets=[node.target])
 
     def _visit_aug_op(self, node, left, right, op_name=None, op_kind=OperationNode.Kind.UNCLASSIFIED):
         return self._visit_op(op_name or node.op.__class__.__name__.lower(), node, op_kind, [left, right])
 
     def visit_AugAssign(self, node):
-        try:
-            val_fg = self._visit_aug_op(node, node.target, node.value, op_kind=OperationNode.Kind.AUG_ASSIGN)
-            result = self._visit_simple_assign(node.target, val_fg)
-            logger.warning(f"Successfully visited node = {node}, target = {node.target}, value = {node.value}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.warning(f"Failed in visited node = {node}, target = {node.target}, value = {node.value}, line = {node.first_token.line}")
-            return None
-        #return self._visit_simple_assign(node.target, val_fg)
-
+        val_fg = self._visit_aug_op(node, node.target, node.value, op_kind=OperationNode.Kind.AUG_ASSIGN)
+        return self._visit_simple_assign(node.target, val_fg)
 
     def _visit_simple_assign(self, target, val, is_op_unmappable=False):
         if not isinstance(val, ExtControlFlowGraph):
@@ -893,7 +862,6 @@ class ASTVisitor(ast.NodeVisitor):
         fg, vars = self.visitor_helper.get_assign_graph_and_vars(op_node, target, prepared_value)
         for var in vars:
             self.context.add_variable(var)
-        logger.warning(f"Visited node _simple_assign, target = {target}, vallue = {val}")
         return fg
 
     def _visit_non_assign_var_decl(self, target):
@@ -962,161 +930,125 @@ class ASTVisitor(ast.NodeVisitor):
         return fg
 
     def visit_Call(self, node):
-        try:
-            name = ast_utils.get_node_short_name(node.func)
-            key = ast_utils.get_node_key(node.func)
-        except:
-            logger.error(f"Fail in visited node = {node}, ast_utils_problem, line = {node.first_token.line}, ast_utils_problem")
-            raise ValueError
+        name = ast_utils.get_node_short_name(node.func)
+        key = ast_utils.get_node_key(node.func)
 
         if isinstance(node.func, ast.Name):
-            try:
                 syntax_tokens = [[node.func.first_token.startpos, node.func.last_token.endpos]]
-                result = self._visit_func_call(node, name, syntax_tokens, key=key)
-                logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-                return result
-            except:
-                logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-            #return self._visit_func_call(node, name, syntax_tokens, key=key)
+                return self._visit_func_call(node, name, syntax_tokens, key=key)
         elif isinstance(node.func, ast.Attribute):
-            try:
-                attr_fg = self.visit(node.func)
+            attr_fg = self.visit(node.func)
 
-                syntax_tokens = [[node.func.last_token.startpos, node.func.last_token.endpos]]
-                call_fg = self._visit_func_call(node, name, syntax_tokens)
+            syntax_tokens = [[node.func.last_token.startpos, node.func.last_token.endpos]]
+            call_fg = self._visit_func_call(node, name, syntax_tokens)
 
-                attr_fg.merge_graph(call_fg, link_node=next(iter(call_fg.sinks)), link_type=LinkType.RECEIVER)
-                logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-                return attr_fg
-            except:
-                logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-            #return attr_fg
+            attr_fg.merge_graph(call_fg, link_node=next(iter(call_fg.sinks)), link_type=LinkType.RECEIVER)
+            return attr_fg
         elif isinstance(node.func, ast.Call):
             return self.visit_Call(node.func)
-            """try:
-                syntax_tokens = [[node.func.first_token.startpos, node.func.last_token.endpos]]
-                result = self._visit_func_call(node, name, syntax_tokens, key=key)
-                logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-                return result"""
-
         else:
+            logger.error(
+                f"Fail in visited node = {node}, unsupported func type = {node.func} line = {node.first_token.line}")
+            return None
             raise ValueError
 
     # Control statement visits
     def visit_If(self, node):
-        try:
-            control_node = ControlNode(ControlNode.Label.IF, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
-            # todo: there is no else keyword tokens in parsed ast tokens
+        control_node = ControlNode(ControlNode.Label.IF, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
 
-            fg = self.visit(node.test)
-            fg.add_node(control_node, link_type=LinkType.CONDITION)
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-            fg1 = self._visit_control_node_body(control_node, node.body, True)
-            fg2 = self._visit_control_node_body(control_node, node.orelse, False)
-            fg.parallel_merge_graphs([fg1, fg2])
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg_if = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg_if, fg_else])
+        return fg
+
+    def visit_IfExp(self, node):
+        line_to_log = node.first_token.line
+        if hasattr(node, 'body') and isinstance(node.body, list):
+            for expr in node.body:
+                line_to_log += expr.first_token.line
+        logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+
 
     def visit_For(self, node):
-        try:
-            control_node = ControlNode(ControlNode.Label.FOR, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
-            fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
-            fg.add_node(control_node, link_type=LinkType.CONDITION)
+        control_node = ControlNode(ControlNode.Label.FOR, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
+        fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-            fg1 = self._visit_control_node_body(control_node, node.body, True)
-            # fg2 = self._visit_control_node_body(control_node, node.orelse, False) todo
-            fg.parallel_merge_graphs([fg1])
-            fg.statement_sinks.clear()
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg_for = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg_for, fg_else])
+        fg.statement_sinks.clear()
+        return fg
 
     def visit_While(self, node):
-        try:
-            control_node = ControlNode(ControlNode.Label.WHILE, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
-            fg = self.visit(node.test)
-            fg.add_node(control_node, link_type=LinkType.CONDITION)
+        control_node = ControlNode(ControlNode.Label.WHILE, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-            fg1 = self._visit_control_node_body(control_node, node.body, True)
-            # orelse todo
-            fg.parallel_merge_graphs([fg1])
-            fg.statement_sinks.clear()
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg1 = self._visit_control_node_body(control_node, node.body, True)
+        fg2 = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg1, fg2])
+        fg.statement_sinks.clear()
+        return fg
 
-    def visit_Try(self, node):  # todo: finally, else?
-        try:
-            control_node = ControlNode(ControlNode.Label.TRY, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
+    def visit_Try(self, node):
+        control_node = ControlNode(ControlNode.Label.TRY, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
 
-            fg = self.create_graph()
-            fg.add_node(control_node, link_type=LinkType.CONDITION)
+        fg = self.create_graph()
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-            fg1 = self._visit_control_node_body(control_node, node.body, True)
-            self._switch_control_branch(control_node, False)
-            handlers_fgs = []
-            for handler in node.handlers:
-                handler_fg = self.visit(handler)
-                handlers_fgs.append(handler_fg)
-            fg.parallel_merge_graphs([fg1] + handlers_fgs)
-            self._pop_control_branch()
-            fg.statement_sinks.clear()
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg_try = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, True)
+        fg_finally = self._visit_control_node_body(control_node, node.finalbody, True) #todo add finally in except branch
+
+        self._switch_control_branch(control_node, False)
+        handlers_fgs = []
+        for handler in node.handlers:
+            handler_fg = self.visit(handler)
+            handlers_fgs.append(handler_fg)
+
+        fg.parallel_merge_graphs([fg_try, fg_else, fg_finally] + handlers_fgs)
+
+        self._pop_control_branch()
+        fg.statement_sinks.clear()
+        return fg
 
     def visit_ExceptHandler(self, node):
-        try:
-            control_node = ControlNode(ControlNode.Label.EXCEPT, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
+        control_node = ControlNode(ControlNode.Label.EXCEPT, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
 
-            fg = self.visit(node.type) if node.type else self.create_graph()
-            fg.add_node(control_node, link_type=LinkType.PARAMETER)
-            fg.merge_graph(self._visit_control_node_body(control_node, node.body, True))
-            fg.statement_sources.clear()  # todo: bad workaround
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        fg = self.visit(node.type) if node.type else self.create_graph()
+        fg.add_node(control_node, link_type=LinkType.PARAMETER)
+        fg.merge_graph(self._visit_control_node_body(control_node, node.body, True))
+        fg.statement_sources.clear()  # todo: bad workaround
+        return fg
 
     def visit_Assert(self, node):
-        try:
-            control_node = ControlNode(ControlNode.Label.ASSERT, node, self.control_branch_stack)
-            control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
-                                      [[node.first_token.startpos, node.first_token.endpos]])
-            fg = self.visit(node.test)
-            fg.add_node(control_node, link_type=LinkType.CONDITION)
+        control_node = ControlNode(ControlNode.Label.ASSERT, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-            if node.msg:
-                fg2 = self.visit(node.msg) if node.msg else self.create_graph()
-                fg2.add_node(control_node, link_type=LinkType.PARAMETER)
-                fg.merge_graph(fg2, link_node=control_node)
+        if node.msg:
+            fg_msg = self.visit(node.msg) if node.msg else self.create_graph()
+            fg_msg.add_node(control_node, link_type=LinkType.PARAMETER)
+            fg.merge_graph(fg_msg, link_node=control_node)
 
-            self._switch_control_branch(control_node, True)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return fg
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return fg
+        self._switch_control_branch(control_node, True)
+        return fg
 
     def _visit_control_node_body(self, control_node, statements, new_branch_kind, replace_control=False):
         self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
@@ -1137,6 +1069,15 @@ class ASTVisitor(ast.NodeVisitor):
                 continue
 
             fg.merge_graph(st_fg)
+        self._pop_control_branch()
+        return fg
+
+    def _visit_sub_if_expr(self, control_node, statements, new_branch_kind, replace_control=False):
+        self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
+        fg = self.create_graph()
+        fg.add_node(EmptyNode(self.control_branch_stack))
+        st_fg = self.visit(statements)
+        fg.merge_graph(st_fg)
         self._pop_control_branch()
         return fg
 
@@ -1167,174 +1108,56 @@ class ASTVisitor(ast.NodeVisitor):
         return g
 
     def visit_Raise(self, node):
-        try:
-            result = self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE, reset_variables=True)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE, reset_variables=True)
+        return self._visit_dep_resetter(OperationNode.Label.RAISE, node, OperationNode.Kind.RAISE, reset_variables=True)
 
     def visit_Return(self, node):
-        try:
-            result = self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN, reset_variables=True)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN,
-          #                              reset_variables=True)
+        return self._visit_dep_resetter(OperationNode.Label.RETURN, node, OperationNode.Kind.RETURN,
+                                        reset_variables=True)
 
     def visit_Continue(self, node):
-        try:
-            result =self._visit_dep_resetter(OperationNode.Label.CONTINUE, node, OperationNode.Kind.CONTINUE)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_dep_resetter(OperationNode.Label.CONTINUE, node, OperationNode.Kind.CONTINUE)
+        return self._visit_dep_resetter(OperationNode.Label.CONTINUE, node, OperationNode.Kind.CONTINUE)
 
     def visit_Break(self, node):
-        try:
-            result =self._visit_dep_resetter(OperationNode.Label.BREAK, node, OperationNode.Kind.BREAK)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self._visit_dep_resetter(OperationNode.Label.BREAK, node, OperationNode.Kind.BREAK)
+        return self._visit_dep_resetter(OperationNode.Label.BREAK, node, OperationNode.Kind.BREAK)
 
     # Other visits
+
     def visit_Await(self, node):
-        try:
-            result = self.visit(node.value)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visit(node.value)
+        return self.visit(node.value)
 
     def visit_FormattedValue(self, node):
-        try:
-            result = self.visit(node.value)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return result
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return self.visit(node.value)
+        return self.visit(node.value)
 
     def visit_JoinedStr(self, node):
-        try:
-            g = self.create_graph()
-            g.parallel_merge_graphs([self.visit(val) for val in node.values])
+        g = self.create_graph()
+        g.parallel_merge_graphs([self.visit(val) for val in node.values])
 
-            op_node = OperationNode('fstr', node, self.control_branch_stack, kind=OperationNode.Kind.UNCLASSIFIED)
-            g.add_node(op_node, link_type=LinkType.PARAMETER)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return g
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return g
+        op_node = OperationNode('fstr', node, self.control_branch_stack, kind=OperationNode.Kind.UNCLASSIFIED)
+        g.add_node(op_node, link_type=LinkType.PARAMETER)
+        return g
 
     def visit_Compare(self, node):
-        try:
-            g = None
-            last_fg = self.visit(node.left)
-            last_ast = node.left
-            for i, cmp in enumerate(node.comparators):
-                op_node = OperationNode(node.ops[i].__class__.__name__, node, self.control_branch_stack,
-                                        kind=OperationNode.Kind.COMPARE)
-                syntax_left = last_ast.last_token.endpos
-                syntax_right = cmp.first_token.startpos
-                op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[syntax_left, syntax_right]])
-                right_fg = self.visit(cmp)
+        g = None
+        last_fg = self.visit(node.left)
+        last_ast = node.left
+        for i, cmp in enumerate(node.comparators):
+            op_node = OperationNode(node.ops[i].__class__.__name__, node, self.control_branch_stack,
+                                    kind=OperationNode.Kind.COMPARE)
+            syntax_left = last_ast.last_token.endpos
+            syntax_right = cmp.first_token.startpos
+            op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [[syntax_left, syntax_right]])
+            right_fg = self.visit(cmp)
 
-                last_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-                right_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            last_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            right_fg.add_node(op_node, link_type=LinkType.PARAMETER)
 
-                fgs = [last_fg, right_fg]
-                g = self.create_graph()
-                g.parallel_merge_graphs(fgs)
-
-                last_fg = g
-                last_ast = cmp
-                logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-                return g
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return g
-
-    def visit_ListComp(self, node):
-        #TODO deal with tail: example [(x, y) for x in [1, 2, 3] for y in [3, 1, 4] if x != y]
-        try:
-            op_node = OperationNode(OperationNode.Label.LISTCOMP, node, self.control_branch_stack, kind=OperationNode.Kind.LISTCOMP)
-            op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
-                [node.first_token.endpos, node.last_token.startpos]
-            ])
-            params_fgs = []
-
-            head, *tail = node.generators
-
-            iter_fg = self._visit_simple_assign(head.target, head.iter, is_op_unmappable=True)
-            iter_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-            params_fgs.append(iter_fg)
-
-            if head.ifs:
-                for each in head.ifs:
-                    fg = self.visit(each)
-                    fg.add_node(op_node, link_type=LinkType.CONDITION)
-                    params_fgs.append(fg)
-
-            elt_fg = self.visit(node.elt)
-            elt_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-            params_fgs.append(elt_fg)
-
+            fgs = [last_fg, right_fg]
             g = self.create_graph()
-            g.parallel_merge_graphs(params_fgs)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return g
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-       # return g
+            g.parallel_merge_graphs(fgs)
 
-
-    def visit_DictComp(self, node):
-        try:
-            op_node = OperationNode(OperationNode.Label.DICTCOMP, node, self.control_branch_stack, kind=OperationNode.Kind.DICTCOMP)
-            op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
-                [node.first_token.endpos, node.last_token.startpos]
-            ])
-            params_fgs = []
-
-            head, *tail = node.generators
-
-            iter_fg = self._visit_simple_assign(head.target, head.iter, is_op_unmappable=True)
-            iter_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-            params_fgs.append(iter_fg)
-            if head.ifs:
-                for each in head.ifs:
-                    fg = self.visit(each)
-                    fg.add_node(op_node, link_type=LinkType.CONDITION)
-                    params_fgs.append(fg)
-
-            key_fg = self.visit(node.key)
-            key_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-            params_fgs.append(key_fg)
-
-            value_fg = self.visit(node.value)
-            value_fg.add_node(op_node, link_type=LinkType.PARAMETER)
-            params_fgs.append(value_fg)
-
-            g = self.create_graph()
-            g.parallel_merge_graphs(params_fgs)
-            logger.warning(f"Successfully visited node = {node}, line = {node.first_token.line}")
-            return g
-        except:
-            logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-        #return g
-
-    def visit_GeneratorExp(self, node):
-        logger.error(f"Fail in visited node = {node}, line = {node.first_token.line}")
-
+            last_fg = g
+            last_ast = cmp
+        return g
 
 class GraphBuildingException(Exception):
     pass

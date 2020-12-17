@@ -18,11 +18,10 @@ def get_node_key(node):
     elif isinstance(node, ast.FunctionDef):
         return node.name
     elif isinstance(node, ast.Call):
-        logger.warning(f"ast_utils: get_node_key node = {node}, line = {node.first_token.line}")
         return get_node_key(node.func)
     else:
         logger.error(f"ast_utils: get_node_key node = {node}, line = {node.first_token.line}")
-        raise ValueError
+        return "Expr"
 
 
 def get_node_full_name(node):
@@ -53,7 +52,7 @@ def get_node_full_name(node):
     elif isinstance(node, ast.FunctionDef):
         return node.name
     elif isinstance(node, ast.Subscript):
-        return f'{get_node_full_name(node.value)}[{get_node_full_name(node.slice)}]'
+        return f'{get_node_full_name(node.value)}[.]'
     elif isinstance(node, ast.Index):
         return get_node_full_name(node.value)
     elif isinstance(node, ast.Slice):
@@ -74,9 +73,12 @@ def get_node_full_name(node):
         return "UnaryOp(.)"
     elif isinstance(node, ast.Call):
         str = ",".join(['.' for item in node.args])
-        return f"{node.func.id}({str})"
+        id = node.func.id if hasattr(node.func, 'id') else node.func.attr
+        return f"{id}({str})"
     elif isinstance(node, ast.BinOp):
         return "BinOp(.,.)"
+    elif isinstance(node, ast.BoolOp):
+        return "BoolOp(.,.)"
     elif isinstance(node, ast.Compare):
         return "Compare(.,.)"
     elif isinstance(node, ast.ExtSlice):
@@ -97,8 +99,11 @@ def get_node_short_name(node):
     elif isinstance(node, ast.FunctionDef):
         return node.name
     elif isinstance(node, ast.Call):
-        logger.warning(f"ast_utils: get_node_short_name node = {node}, line = {node.first_token.line}")
+        return get_node_short_name(node.func)
+    elif isinstance(node, ast.Subscript):
+        return get_node_short_name(node.value) + '[.]'
+    elif isinstance(node, ast.Call):
         return get_node_short_name(node.func)
     else:
         logger.error(f"ast_utils: get_node_short_name node = {node}, line = {node.first_token.line}")
-        raise ValueError
+        return "Expr"

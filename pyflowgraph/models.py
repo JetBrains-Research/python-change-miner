@@ -3,7 +3,6 @@ from __future__ import annotations
 import ast
 from typing import Set
 
-import pyflowgraph
 from log import logger
 
 import vb_utils
@@ -169,6 +168,7 @@ class OperationNode(StatementNode):
         ASSIGN = '='
         LISTCOMP = 'ListComprehension'
         DICTCOMP = 'DictComprehension'
+        GENERATOREXPR = 'GeneratorExpression'
         COMPREHENSION = 'comprehension'
 
     class Kind:
@@ -186,7 +186,10 @@ class OperationNode(StatementNode):
         BINARY = 'binary'
         LISTCOMP = 'list-comp'
         DICTCOMP = 'dict-comp'
+        COMPREHENSION = 'comprehension'
+        GENERATOREXPR = 'generator-expr'
         UNCLASSIFIED = 'unclassified'
+
 
     def __init__(self, label, ast, control_branch_stack, /, *, kind=None, key=None):
         super().__init__(label, ast, control_branch_stack)
@@ -399,6 +402,12 @@ class ExtControlFlowGraph:
         self.entry_node = entry_node
         self.nodes.add(entry_node)
 
+    def get_control_nodes(self):
+        control_nodes = []
+        for node in self.nodes:
+            if isinstance(node, ControlNode):
+                control_nodes.append(node)
+
     def map_to_gumtree(self, gt):
         from changegraph.gumtree import GumTree
         logger.info('Trying to stick pfg to gumtree')
@@ -454,6 +463,11 @@ class ExtControlFlowGraph:
                     type_label = GumTree.TypeLabel.LISTCOMP
                 elif node.kind == OperationNode.Kind.DICTCOMP:
                     type_label = GumTree.TypeLabel.DICTCOMP
+                elif node.kind == OperationNode.Kind.GENERATOREXPR:
+                    type_label = GumTree.TypeLabel.GENERATOREXPR
+                elif node.kind == OperationNode.Kind.COMPREHENSION:
+                    type_label = GumTree.TypeLabel.COMPREHENSION
+
             found = gt.find_node(pos, length, type_label=type_label)
             if found:
                 logger.info(f'FG node {node} is mapped to {found}, '
