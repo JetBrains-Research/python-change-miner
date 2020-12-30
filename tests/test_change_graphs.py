@@ -172,13 +172,14 @@ def test_complex_example2():
                 print(self.a.b.c.d.e)
     """)
     cg = _try_build_change_graph(src, dest)
+    info = _get_label_to_node_cnt(cg)
     assert _get_label_to_node_cnt(cg) == {
         'self': 0 + 1,
         'self.a': 0 + 1,
         'self.a.b': 0 + 1,
         'self.a.b.c': 0 + 1,
         'self.a.b.c.d': 0 + 1,
-        'self.a.b.c.d.e': 0 + 1,
+        'self.a.b.c.d.e': 1 + 1,
         'IsNot': 0 + 1,
         'if': 0 + 1,
         'None': 0 + 1

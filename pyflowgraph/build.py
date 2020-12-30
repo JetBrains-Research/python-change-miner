@@ -4,11 +4,11 @@ from typing import Dict, Set
 
 from asttokens import asttokens
 
+import settings
 from log import logger
 from pyflowgraph import models, ast_utils
 from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, \
     EntryNode, EmptyNode, ControlEdge, StatementNode
-
 
 class BuildingContext:
     def __init__(self):
@@ -31,7 +31,6 @@ class BuildingContext:
 
             if def_node_stack[:len(node_stack)] == node_stack:
                 def_nodes.remove(def_node)
-
         def_nodes.add(node)
         self.var_key_to_def_nodes[node.key] = def_nodes
 
@@ -49,8 +48,13 @@ class BuildingContext:
 class GraphBuilder:
     def build_from_source(self, source_code, show_dependencies=False, build_closure=True):
         models._statement_cnt = 0
+        try:
+            source_code_ast = ast.parse(source_code, mode='exec')
+            logger.info(f"Parsing completed, code = {source_code}")
+        except:
+            logger.error(f"Error in parsing, code = {source_code}")
+            raise GraphBuildingException
 
-        source_code_ast = ast.parse(source_code, mode='exec')
         tokenized_ast = asttokens.ASTTokens(source_code, tree=source_code_ast)
 
         if isinstance(tokenized_ast.tree, ast.Module) and isinstance(tokenized_ast.tree.body[0], ast.FunctionDef):
@@ -58,7 +62,13 @@ class GraphBuilder:
         else:
             root_ast = tokenized_ast.tree
 
-        ast_visitor = ASTVisitor()
+        log_level = settings.get("logger_file_log_level", 'INFO')
+
+        if log_level != 'DEBUG':
+            ast_visitor = ASTVisitor()
+        else:
+            ast_visitor = ASTVisitor_Debug()
+
         fg = ast_visitor.visit(root_ast)
 
         if not show_dependencies:
@@ -279,12 +289,13 @@ class ASTVisitorHelper:
         elif isinstance(node, ast.Starred):
             group.append(node.value)
         else:
+            logger.error(f'Unsupported node (unable to get assign group) = {node}')
             raise GraphBuildingException(f'Unsupported node (unable to get assign group) = {node}')
 
         return group
 
     def get_assign_graph_and_vars(self, op_node, target, prepared_value):
-        if isinstance(target, ast.Name) or isinstance(target, ast.arg):
+        if isinstance(target, (ast.Name, ast.arg)):
             var_name = ast_utils.get_node_full_name(target)
             var_key = ast_utils.get_node_key(target)
 
@@ -303,7 +314,60 @@ class ASTVisitorHelper:
             var_node.set_property(Node.Property.DEF_CONTROL_BRANCH_STACK, op_node.control_branch_stack)
 
             return val_fg, [var_node]
-        elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):  # Starred appears inside collections
+
+        elif isinstance(target, ast.Attribute):
+            var_name = ast_utils.get_node_full_name(target)
+            var_key = ast_utils.get_node_key(target)
+
+            val_fg = prepared_value
+            var_node = DataNode(var_name, target, key=var_key, kind=DataNode.Kind.VARIABLE_DECL)
+
+            sink_nums = []
+            for sink in val_fg.sinks:
+                sink.update_property(Node.Property.DEF_FOR, [var_node.statement_num])
+                sink_nums.append(sink.statement_num)
+            var_node.set_property(Node.Property.DEF_BY, sink_nums)
+
+            val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
+
+            fg = self.visitor.visit(target.value)
+            val_fg.merge_graph(fg)
+            for node in fg.nodes:
+                node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+
+            return val_fg, [var_node]
+
+        elif isinstance(target, ast.Subscript):
+            var_name = ast_utils.get_node_full_name(target)
+
+            val_fg = prepared_value
+            var_node = DataNode(var_name, target, kind=DataNode.Kind.VARIABLE_DECL)
+
+            sink_nums = []
+            for sink in val_fg.sinks:
+                sink.update_property(Node.Property.DEF_FOR, [var_node.statement_num])
+                sink_nums.append(sink.statement_num)
+            var_node.set_property(Node.Property.DEF_BY, sink_nums)
+
+            val_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+            val_fg.add_node(var_node, link_type=LinkType.DEFINITION)
+
+            arr_fg = self.visitor.visit(target.value)
+            slice_fg = self.visitor.visit(target.slice)
+
+            val_fg.merge_graph(arr_fg)
+            val_fg.merge_graph(slice_fg)
+
+            for node in arr_fg.nodes:
+                # node.create_edge(var_node, link_type=LinkType.QUALIFIER)
+                node.create_edge(var_node, link_type=LinkType.REFERENCE)
+            for node in slice_fg.nodes:
+                node.create_edge(var_node, link_type=LinkType.PARAMETER)
+
+            return val_fg, [var_node]
+
+        elif isinstance(target, (ast.Tuple, ast.List)):  # Starred appears inside collections
             vars = []
             if isinstance(prepared_value, ExtControlFlowGraph):  # for function calls TODO: think about tree mapping
                 assign_group = self._get_assign_group(target)
@@ -337,19 +401,18 @@ class ASTVisitorHelper:
         elif isinstance(collection, ast.Dict):
             return collection.keys
         else:
+            logger.error(f'Unable to extract collection values from {collection}')
             raise GraphBuildingException(f'Unable to extract collection values from {collection}')
 
     def prepare_assign_values(self, target, value):
         """
         target is used for structure definition only
         """
-        if isinstance(target, ast.Name) or isinstance(target, ast.arg):
+        if isinstance(target, (ast.Name, ast.arg, ast.Attribute, ast.Subscript, ast.Starred, ast.ListComp)):
             return self.visitor.visit(value)
-        elif isinstance(target, ast.Tuple) or isinstance(target, ast.List):
+        elif isinstance(target, (ast.Tuple, ast.List)):
             prepared_arr = []
-            if isinstance(value, ast.Call):
-                return self.visitor.visit(value)
-            elif isinstance(value, ast.Name):
+            if isinstance(value, (ast.Call, ast.Name, ast.Attribute)):
                 return self.visitor.visit(value)
             else:
                 values = self._extract_collection_values(value)
@@ -365,7 +428,7 @@ class ASTVisitorHelper:
                 starred_val_list = values[starred_index:starred_index + starred_val_cnt]
 
                 if len(starred_val_list) > 0:
-                    if isinstance(starred_val_list[0], list) or isinstance(starred_val_list[0], tuple):
+                    if isinstance(starred_val_list[0], (list, tuple)):
                         starred_val_list = starred_val_list[0].elts
 
                 starred_fg = self.create_graph()
@@ -381,12 +444,10 @@ class ASTVisitorHelper:
                     prepared_arr.append(self.prepare_assign_values(target.elts[1 + starred_index + i], val))
             return prepared_arr
         else:
+            logger.error(f'Unsupported target node = {target}')
             raise GraphBuildingException(f'Unsupported target node = {target}')
 
     def visit_assign(self, node, targets):
-        """
-        possible targets are Attribute-, Subscript-, Slicing-, Starred+, Name+, List+, Tuple+
-        """
         g = self.create_graph()
         op_node = OperationNode(OperationNode.Label.ASSIGN, node, self.visitor.control_branch_stack,
                                 kind=OperationNode.Kind.ASSIGN)
@@ -420,6 +481,9 @@ class ASTVisitor(ast.NodeVisitor):
         self.control_branch_stack = []
 
         self.visitor_helper = ASTVisitorHelper(self)
+
+        self.log_level = settings.get("logger_file_log_level", 'INFO')
+
 
     @property
     def context(self):
@@ -497,11 +561,15 @@ class ASTVisitor(ast.NodeVisitor):
         for st in node.body:
             try:
                 fg = self.visit(st)
+                logger.info(f"Successfully proceed expr = {st} line = {st.first_token.line}")
             except:
                 fg = None
 
             if not fg:
-                logger.error(f'Unable to build pfg for expr = {st}, skipping...', exc_info=True)
+                err_msg = f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...'
+                if isinstance(st, ast.Assign):
+                    err_msg += f'Assign error: targets = {st.targets}, values = {st.value}'
+                logger.error(err_msg, exc_info=True)
                 continue
 
             self.fg.merge_graph(fg)
@@ -516,7 +584,6 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         if not self.fg.entry_node:
             return self._visit_entry_node(node)
-
         fg = self._visit_non_assign_var_decl(node)
         var_node = next(iter(fg.nodes))
         var_node.set_property(
@@ -589,7 +656,8 @@ class ASTVisitor(ast.NodeVisitor):
         g.parallel_merge_graphs(fg_graphs)
         op_node = OperationNode('Dict', node, self.control_branch_stack, kind=OperationNode.Kind.COLLECTION)
         op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
-            [node.first_token.startpos, node.first_token.endpos], [node.last_token.startpos, node.last_token.endpos]])
+            [node.first_token.startpos, node.first_token.endpos],
+            [node.last_token.startpos, node.last_token.endpos]])
         g.add_node(op_node, link_type=LinkType.PARAMETER)
         return g
 
@@ -615,7 +683,6 @@ class ASTVisitor(ast.NodeVisitor):
         data_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
             [node.last_token.startpos, node.last_token.endpos]])
         fg.add_node(data_node, link_type=LinkType.QUALIFIER, clear_sinks=True)
-
         return fg
 
     def visit_Subscript(self, node):
@@ -626,8 +693,7 @@ class ASTVisitor(ast.NodeVisitor):
         slice_node = DataNode(name, node, kind=DataNode.Kind.SUBSCRIPT)
         slice_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [])
         slice_fg.add_node(slice_node, link_type=LinkType.PARAMETER, clear_sinks=True)
-
-        arr_fg.merge_graph(slice_fg, link_node=next(iter(slice_fg.sinks)), link_type=LinkType.QUALIFIER)
+        arr_fg.merge_graph(slice_fg, link_node=next(iter(slice_fg.sinks)), link_type=LinkType.REFERENCE)
         return arr_fg
 
     def visit_Index(self, node):
@@ -647,11 +713,103 @@ class ASTVisitor(ast.NodeVisitor):
         fg.parallel_merge_graphs(fgs)
         return fg
 
+    def visit_ExtSlice(self, node):
+        fgs = []
+        for dim in node.dims:
+            fgs.append(self.visit(dim))
+
+        fg = self.create_graph()
+        fg.parallel_merge_graphs(fgs)
+        return fg
+
+    def visit_ListComp(self, node):
+        op_node = OperationNode(OperationNode.Label.LISTCOMP, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.LISTCOMP)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        elt_fg = self.visit(node.elt)
+        elt_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(elt_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+
+    def visit_DictComp(self, node):
+        op_node = OperationNode(OperationNode.Label.DICTCOMP, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.DICTCOMP)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        key_fg = self.visit(node.key)
+        key_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(key_fg)
+
+        value_fg = self.visit(node.value)
+        value_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(value_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+
+    def visit_GeneratorExp(self, node):
+        op_node = OperationNode(OperationNode.Label.GENERATOREXPR, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.GENERATOREXPR)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]
+        ])
+        params_fgs = []
+
+        for generator in node.generators:
+            params_fgs.append(self.visit(generator))
+
+        elt_fg = self.visit(node.elt)
+        elt_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(elt_fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
+    def visit_comprehension(self, node):
+        params_fgs = []
+        op_node = OperationNode(OperationNode.Label.COMPREHENSION, node, self.control_branch_stack,
+                                kind=OperationNode.Kind.COMPREHENSION)
+        op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, [
+            [node.first_token.endpos, node.last_token.startpos]])
+        iter_fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
+        iter_fg.add_node(op_node, link_type=LinkType.PARAMETER)
+        params_fgs.append(iter_fg)
+
+        if node.ifs:
+            for each in node.ifs:
+                fg = self.visit(each)
+                fg.add_node(op_node, link_type=LinkType.CONDITION)
+                params_fgs.append(fg)
+
+        g = self.create_graph()
+        g.parallel_merge_graphs(params_fgs)
+        return g
+
     # Visit operations
     def visit_BinOp(self, node):
         return self._visit_bin_op(node, node.left, node.right,
-                                  op_name=node.op.__class__.__name__.lower(),
-                                  op_kind=OperationNode.Kind.BINARY)
+                               op_name=node.op.__class__.__name__.lower(),
+                               op_kind=OperationNode.Kind.BINARY)
 
     def visit_BoolOp(self, node):
         op_name = node.op.__class__.__name__.lower()
@@ -667,12 +825,12 @@ class ASTVisitor(ast.NodeVisitor):
     def visit_AnnAssign(self, node):
         return self.visitor_helper.visit_assign(node, targets=[node.target])
 
+    def _visit_aug_op(self, node, left, right, op_name=None, op_kind=OperationNode.Kind.UNCLASSIFIED):
+        return self._visit_op(op_name or node.op.__class__.__name__.lower(), node, op_kind, [left, right])
+
     def visit_AugAssign(self, node):
-        if isinstance(node.target, ast.Name):
-            val_fg = self._visit_bin_op(node.op, node.target, node.value, op_kind=OperationNode.Kind.AUG_ASSIGN)
-            return self._visit_simple_assign(node.target, val_fg)
-        else:
-            raise GraphBuildingException(f'Unsupported AugAssign target = {node.target}')
+        val_fg = self._visit_aug_op(node, node.target, node.value, op_kind=OperationNode.Kind.AUG_ASSIGN)
+        return self._visit_simple_assign(node.target, val_fg)
 
     def _visit_simple_assign(self, target, val, is_op_unmappable=False):
         if not isinstance(val, ExtControlFlowGraph):
@@ -689,7 +847,6 @@ class ASTVisitor(ast.NodeVisitor):
         fg, vars = self.visitor_helper.get_assign_graph_and_vars(op_node, target, prepared_value)
         for var in vars:
             self.context.add_variable(var)
-
         return fg
 
     def _visit_non_assign_var_decl(self, target):
@@ -772,23 +929,35 @@ class ASTVisitor(ast.NodeVisitor):
 
             attr_fg.merge_graph(call_fg, link_node=next(iter(call_fg.sinks)), link_type=LinkType.RECEIVER)
             return attr_fg
+        elif isinstance(node.func, ast.Call):
+            return self.visit_Call(node.func)
         else:
-            raise ValueError
+            logger.error(
+                f"Fail in visited node = {node}, unsupported func type = {node.func} line = {node.first_token.line}")
+            return None
 
     # Control statement visits
     def visit_If(self, node):
         control_node = ControlNode(ControlNode.Label.IF, node, self.control_branch_stack)
         control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
                                   [[node.first_token.startpos, node.first_token.endpos]])
-        # todo: there is no else keyword tokens in parsed ast tokens
 
         fg = self.visit(node.test)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-        fg1 = self._visit_control_node_body(control_node, node.body, True)
-        fg2 = self._visit_control_node_body(control_node, node.orelse, False)
-        fg.parallel_merge_graphs([fg1, fg2])
+        fg_if = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg_if, fg_else])
         return fg
+
+    def visit_IfExp(self, node):
+        line_to_log = node.first_token.line
+        if hasattr(node, 'body') and isinstance(node.body, list):
+            for expr in node.body:
+                line_to_log += expr.first_token.line
+        logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+        return None
+
 
     def visit_For(self, node):
         control_node = ControlNode(ControlNode.Label.FOR, node, self.control_branch_stack)
@@ -797,9 +966,9 @@ class ASTVisitor(ast.NodeVisitor):
         fg = self._visit_simple_assign(node.target, node.iter, is_op_unmappable=True)
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-        fg1 = self._visit_control_node_body(control_node, node.body, True)
-        # fg2 = self._visit_control_node_body(control_node, node.orelse, False) todo
-        fg.parallel_merge_graphs([fg1])
+        fg_for = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg_for, fg_else])
         fg.statement_sinks.clear()
         return fg
 
@@ -811,12 +980,12 @@ class ASTVisitor(ast.NodeVisitor):
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
         fg1 = self._visit_control_node_body(control_node, node.body, True)
-        # orelse todo
-        fg.parallel_merge_graphs([fg1])
+        fg2 = self._visit_control_node_body(control_node, node.orelse, False)
+        fg.parallel_merge_graphs([fg1, fg2])
         fg.statement_sinks.clear()
         return fg
 
-    def visit_Try(self, node):  # todo: finally, else?
+    def visit_Try(self, node):
         control_node = ControlNode(ControlNode.Label.TRY, node, self.control_branch_stack)
         control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
                                   [[node.first_token.startpos, node.first_token.endpos]])
@@ -824,13 +993,18 @@ class ASTVisitor(ast.NodeVisitor):
         fg = self.create_graph()
         fg.add_node(control_node, link_type=LinkType.CONDITION)
 
-        fg1 = self._visit_control_node_body(control_node, node.body, True)
+        fg_try = self._visit_control_node_body(control_node, node.body, True)
+        fg_else = self._visit_control_node_body(control_node, node.orelse, True)
+        fg_finally = self._visit_control_node_body(control_node, node.finalbody, True) #todo add finally in except branch
+
         self._switch_control_branch(control_node, False)
         handlers_fgs = []
         for handler in node.handlers:
             handler_fg = self.visit(handler)
             handlers_fgs.append(handler_fg)
-        fg.parallel_merge_graphs([fg1] + handlers_fgs)
+
+        fg.parallel_merge_graphs([fg_try, fg_else, fg_finally] + handlers_fgs)
+
         self._pop_control_branch()
         fg.statement_sinks.clear()
         return fg
@@ -846,6 +1020,21 @@ class ASTVisitor(ast.NodeVisitor):
         fg.statement_sources.clear()  # todo: bad workaround
         return fg
 
+    def visit_Assert(self, node):
+        control_node = ControlNode(ControlNode.Label.ASSERT, node, self.control_branch_stack)
+        control_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS,
+                                  [[node.first_token.startpos, node.first_token.endpos]])
+        fg = self.visit(node.test)
+        fg.add_node(control_node, link_type=LinkType.CONDITION)
+
+        if node.msg:
+            fg_msg = self.visit(node.msg) if node.msg else self.create_graph()
+            fg_msg.add_node(control_node, link_type=LinkType.PARAMETER)
+            fg.merge_graph(fg_msg, link_node=control_node)
+
+        self._switch_control_branch(control_node, True)
+        return fg
+
     def _visit_control_node_body(self, control_node, statements, new_branch_kind, replace_control=False):
         self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
         fg = self.create_graph()
@@ -853,14 +1042,27 @@ class ASTVisitor(ast.NodeVisitor):
         for st in statements:
             try:
                 st_fg = self.visit(st)
+                logger.info(f"Successfully proceed expr = {st} line = {st.first_token.line}")
             except:
                 st_fg = None
 
             if not st_fg:
-                logger.error(f'Unable to build pfg for expr = {st}, skipping...', exc_info=True)
+                err_msg = f'Unable to build pfg for expr = {st}, line = {st.first_token.line} skipping...'
+                if isinstance(st, ast.Assign):
+                    err_msg += f'Assign error: targets = {st.targets}, values = {st.value}'
+                logger.error(err_msg, exc_info=True)
                 continue
 
             fg.merge_graph(st_fg)
+        self._pop_control_branch()
+        return fg
+
+    def _visit_sub_if_expr(self, control_node, statements, new_branch_kind, replace_control=False):
+        self._switch_control_branch(control_node, new_branch_kind, replace=replace_control)
+        fg = self.create_graph()
+        fg.add_node(EmptyNode(self.control_branch_stack))
+        st_fg = self.visit(statements)
+        fg.merge_graph(st_fg)
         self._pop_control_branch()
         return fg
 
@@ -904,6 +1106,7 @@ class ASTVisitor(ast.NodeVisitor):
         return self._visit_dep_resetter(OperationNode.Label.BREAK, node, OperationNode.Kind.BREAK)
 
     # Other visits
+
     def visit_Await(self, node):
         return self.visit(node.value)
 
@@ -916,7 +1119,6 @@ class ASTVisitor(ast.NodeVisitor):
 
         op_node = OperationNode('fstr', node, self.control_branch_stack, kind=OperationNode.Kind.UNCLASSIFIED)
         g.add_node(op_node, link_type=LinkType.PARAMETER)
-
         return g
 
     def visit_Compare(self, node):
@@ -941,6 +1143,25 @@ class ASTVisitor(ast.NodeVisitor):
             last_fg = g
             last_ast = cmp
         return g
+
+
+class ASTVisitorDebug(ASTVisitor):
+
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_visit)
+        line_to_log = node.first_token.line
+        if hasattr(node, 'body') and isinstance(node.body, list):
+            for expr in node.body:
+                line_to_log += expr.first_token.line
+        try:
+            result = visitor(node)
+            logger.debug(f"Successfully visited node = {node}, line = {line_to_log}")
+            return result
+        except:
+            logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+            return None
 
 
 class GraphBuildingException(Exception):

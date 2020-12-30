@@ -6,9 +6,11 @@ def test_graph_building():
     _build_var_decl()
     _build_var_decl_ref()
     _build_variable_tuple_decl()
+    _build_attribute_decl()
     _build_attribute_call()
     _build_attribute_refs_test()
     _build_attribute_ref_after_call()
+    _build_multiple_assign_from_attribute()
     _build_while()
 
 
@@ -36,6 +38,13 @@ def _build_variable_tuple_decl():
     assert len(fg.nodes) == 7  # start, var, assign, lit, lit, lit, tpl
 
 
+def _build_attribute_decl():
+    fg = _build_fg("""
+            a.b.c = 1
+        """)
+    assert len(fg.nodes) == 6  # start, a, a.b, a.b.c, assign, lit
+
+
 def _build_attribute_call():
     fg = _build_fg("""
         self.o.fn()
@@ -52,7 +61,7 @@ def _build_attribute_refs_test():
         a = (self.field.value, value)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'=', 'self', 'self.field', '14', 'START', 'Tuple', 'value', 'self.field.value', 'a'}
+    expected_labels = {'=', 'self', 'self.field', '14', 'START', 'Tuple', 'value', 'self.field.value', 'a', '20'}
     assert labels == expected_labels
 
 
@@ -62,7 +71,16 @@ def _build_attribute_ref_after_call():
         print(self.o.fn().param)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print'}
+    expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print', '14', '='}
+    assert labels == expected_labels
+
+
+def _build_multiple_assign_from_attribute():
+    fg = _build_fg("""
+            m, n = data.shape
+        """)
+    labels = {n.label for n in fg.nodes}
+    expected_labels = {'data', 'data.shape', 'n', 'm', 'START', '='}
     assert labels == expected_labels
 
 
@@ -74,7 +92,7 @@ def _build_while():
         print(i)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'0', 'Lt', '=', 'START', 'i', 'while', '10', 'print'}
+    expected_labels = {'while', 'Lt', '10', '=', 'START', 'print', '0', 'i', '1', 'add'}
     assert labels == expected_labels
 
 
@@ -86,6 +104,7 @@ def test_controls_switching():
     _test_if_else_return()
     _test_if_if_return()
     _test_for()
+    _test_assert()
 
 
 def _find_after_print(fg):
@@ -197,6 +216,17 @@ def _test_for():
     p = _find_after_print(fg)
     control, branch_kind = p.control_branch_stack[-1]
     assert (control.label, branch_kind) == ('START', True)
+
+
+def _test_assert():
+    fg = _build_fg("""
+            a = 10
+            assert a < 10          
+            print('after')
+        """)
+    p = _find_after_print(fg)
+    control, branch_kind = p.control_branch_stack[-1]
+    assert (control.label, branch_kind) == ('assert', True)
 
 
 def test_closure():
