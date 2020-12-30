@@ -62,7 +62,12 @@ class GraphBuilder:
         else:
             root_ast = tokenized_ast.tree
 
-        ast_visitor = ASTVisitor()
+        log_level = settings.get("logger_file_log_level", 'INFO')
+
+        if log_level != 'DEBUG':
+            ast_visitor = ASTVisitor()
+        else:
+            ast_visitor = ASTVisitor_Debug()
 
         fg = ast_visitor.visit(root_ast)
 
@@ -479,25 +484,7 @@ class ASTVisitor(ast.NodeVisitor):
 
         self.log_level = settings.get("logger_file_log_level", 'INFO')
 
-    def visit(self, node):
-        """Visit a node."""
-        method = 'visit_' + node.__class__.__name__
-        visitor = getattr(self, method, self.generic_visit)
 
-        if self.log_level != 'DEBUG':
-            return visitor(node)
-        else:
-            line_to_log = node.first_token.line
-            if hasattr(node, 'body') and isinstance(node.body, list):
-                for expr in node.body:
-                    line_to_log += expr.first_token.line
-            try:
-                result = visitor(node)
-                logger.info(f"Successfully visited node = {node}, line = {line_to_log}")
-                return result
-            except:
-                logger.error(f"Failed visited node = {node}, line = {line_to_log}")
-                return None
     @property
     def context(self):
         return self.context_stack[-1]
@@ -1157,5 +1144,23 @@ class ASTVisitor(ast.NodeVisitor):
             last_ast = cmp
         return g
 
+
+class ASTVisitor_Debug(ASTVisitor):
+
+    def visit(self, node):
+        """Visit a node."""
+        method = 'visit_' + node.__class__.__name__
+        visitor = getattr(self, method, self.generic_visit)
+        line_to_log = node.first_token.line
+        if hasattr(node, 'body') and isinstance(node.body, list):
+            for expr in node.body:
+                line_to_log += expr.first_token.line
+        try:
+            result = visitor(node)
+            logger.debug(f"Successfully visited node = {node}, line = {line_to_log}")
+            return result
+        except:
+            logger.error(f"Failed visited node = {node}, line = {line_to_log}")
+            return None
 class GraphBuildingException(Exception):
     pass
