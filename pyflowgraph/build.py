@@ -50,11 +50,10 @@ class GraphBuilder:
         models._statement_cnt = 0
         try:
             source_code_ast = ast.parse(source_code, mode='exec')
-            logger.warning(f"Parsing completed, code = {source_code}")
+            logger.info(f"Parsing completed, code = {source_code}")
         except:
             logger.error(f"Error in parsing, code = {source_code}")
-            ast_visitor = ASTVisitor()
-            return ast_visitor.create_graph()
+            raise GraphBuildingException
 
         tokenized_ast = asttokens.ASTTokens(source_code, tree=source_code_ast)
 
@@ -478,12 +477,14 @@ class ASTVisitor(ast.NodeVisitor):
 
         self.visitor_helper = ASTVisitorHelper(self)
 
+        self.log_level = settings.get("logger_file_log_level", 'INFO')
+
     def visit(self, node):
         """Visit a node."""
         method = 'visit_' + node.__class__.__name__
         visitor = getattr(self, method, self.generic_visit)
-        log_level = settings.get("logger_file_log_level", 'INFO')
-        if log_level != 'DEBUG':
+
+        if self.log_level != 'DEBUG':
             return visitor(node)
         else:
             line_to_log = node.first_token.line
@@ -492,7 +493,7 @@ class ASTVisitor(ast.NodeVisitor):
                     line_to_log += expr.first_token.line
             try:
                 result = visitor(node)
-                logger.warning(f"Successfully visited node = {node}, line = {line_to_log}")
+                logger.info(f"Successfully visited node = {node}, line = {line_to_log}")
                 return result
             except:
                 logger.error(f"Failed visited node = {node}, line = {line_to_log}")
@@ -573,7 +574,7 @@ class ASTVisitor(ast.NodeVisitor):
         for st in node.body:
             try:
                 fg = self.visit(st)
-                logger.warning(f"Successfully proceed expr = {st} line = {st.first_token.line}")
+                logger.info(f"Successfully proceed expr = {st} line = {st.first_token.line}")
             except:
                 fg = None
 
@@ -1054,7 +1055,7 @@ class ASTVisitor(ast.NodeVisitor):
         for st in statements:
             try:
                 st_fg = self.visit(st)
-                logger.warning(f"Successfully proceed expr = {st} line = {st.first_token.line}")
+                logger.info(f"Successfully proceed expr = {st} line = {st.first_token.line}")
             except:
                 st_fg = None
 

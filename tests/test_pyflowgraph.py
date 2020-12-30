@@ -71,7 +71,6 @@ def _build_attribute_ref_after_call():
         print(self.o.fn().param)
     """)
     labels = {n.label for n in fg.nodes}
-    print(labels)
     expected_labels = {'self.o.fn', 'fn', 'START', 'self', 'self.o', 'self.o.fn().param', 'print', '14', '='}
     assert labels == expected_labels
 
@@ -93,7 +92,7 @@ def _build_while():
         print(i)
     """)
     labels = {n.label for n in fg.nodes}
-    expected_labels = {'0', 'Lt', '=', 'START', 'i', 'while', '10', 'print'}
+    expected_labels = {'while', 'Lt', '10', '=', 'START', 'print', '0', 'i', '1', 'add'}
     assert labels == expected_labels
 
 
@@ -217,17 +216,6 @@ def _test_for():
     p = _find_after_print(fg)
     control, branch_kind = p.control_branch_stack[-1]
     assert (control.label, branch_kind) == ('START', True)
-
-
-def _test_assert():
-    fg = _build_fg("""
-            a = 10
-            assert a < 10          
-            print('after')
-        """)
-    p = _find_after_print(fg)
-    control, branch_kind = p.control_branch_stack[-1]
-    assert (control.label, branch_kind) == ('assert', True)
 
 
 def _test_assert():
