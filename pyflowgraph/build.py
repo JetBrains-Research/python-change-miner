@@ -1145,7 +1145,7 @@ class ASTVisitor(ast.NodeVisitor):
         return g
 
 
-class ASTVisitor_Debug(ASTVisitor):
+class ASTVisitorDebug(ASTVisitor):
 
     def visit(self, node):
         """Visit a node."""
@@ -1162,5 +1162,7 @@ class ASTVisitor_Debug(ASTVisitor):
         except:
             logger.error(f"Failed visited node = {node}, line = {line_to_log}")
             return None
+
+
 class GraphBuildingException(Exception):
     pass
