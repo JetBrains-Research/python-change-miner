@@ -1,5 +1,5 @@
 graphviz==0.13.2
-asttokens==2.0.3
+asttokens==2.0.4
 pydriller==1.12
 
 pytest==5.3.5
