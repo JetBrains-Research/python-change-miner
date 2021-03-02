@@ -111,7 +111,7 @@ class GitAnalyzer:
                     'email': commit.author.email,
                     'name': commit.author.name
                 } if commit.author else None,
-                'num': len(commits)+1,
+                'num': len(commits) + 1,
                 'hash': commit.hash,
                 'dtm': commit.committer_date,
                 'msg': commit.msg,
@@ -174,6 +174,12 @@ class GitAnalyzer:
 
             if not all([mod['old_path'].endswith('.py'), mod['new_path'].endswith('.py')]):
                 continue
+
+            # Skip if file's name does not contain `test`
+            if mod['old_path'].find('test') == -1 and mod['new_path'].find('test') == -1:
+                continue
+
+            print(mod['old_path'])
 
             old_method_to_new = GitAnalyzer._get_methods_mapping(
                 GitAnalyzer._extract_methods(mod['old_path'], mod['old_src']),
