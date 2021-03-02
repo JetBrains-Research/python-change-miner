@@ -39,14 +39,16 @@ class GumTree:
         MOVE = 'move'
 
     class TypeLabel:
-        NAME_STORE = 'NameStore'
-        NAME_LOAD = 'NameLoad'
+        NAME_STORE = 'Name_Store'
+        NAME_LOAD = 'Name_Load'
         FUNC_CALL = 'Call'
         FUNC_DEF = 'FunctionDef'
         ASSIGN = 'Assign'
         EXPR = 'Expr'
-        ATTRIBUTE_STORE = 'AttributeStore'
-        ATTRIBUTE_LOAD ='AttributeLoad'
+        SUBSCRIPT_STORE = 'Subscript_Store'
+        SUBSCRIPT_LOAD = 'Subscript_Load'
+        ATTRIBUTE_STORE = 'Attribute_Store'
+        ATTRIBUTE_LOAD = 'Attribute_Load'
         ATTR = 'attr'
         RETURN = 'Return'
         ARGS = 'arguments'
@@ -54,6 +56,11 @@ class GumTree:
         DEFAULT_ARGS = 'defaults'
         SIMPLE_ARG = 'arg'
         KEYWORD = 'keyword'
+        LISTCOMP = 'ListComp'
+        DICTCOMP = 'DictComp'
+        GENERATOREXPR = 'GeneratorExp'
+        COMPREHENSION = 'comprehension'
+
 
     def __init__(self, source_path, data):
         self.node_id_to_node = {}
@@ -88,7 +95,7 @@ class GumTree:
         self.nodes.append(node)
         self.node_id_to_node[node.id] = node
 
-        return node, val+1
+        return node, val + 1
 
     def find_node(self, pos, length, start_node=None, type_label=None):
         node = start_node

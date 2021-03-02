@@ -2,6 +2,7 @@ import tempfile
 import os
 
 import changegraph
+from deployment import set_all_environment_variables
 import tests.utils as utils
 from log import logger
 
@@ -88,10 +89,10 @@ def test_var_attr_assign():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'self.attr': 1+0,
-        'self.attr.field': 1+0,
-        'self.attr2': 0+1,
-        'self.attr2.field': 0+1
+        'self.attr': 1 + 0,
+        'self.attr.field': 1 + 0,
+        'self.attr2': 0 + 1,
+        'self.attr2.field': 0 + 1
     }
 
 
@@ -147,14 +148,14 @@ def test_complex_example1():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'data_format': 5+3,
-        'if': 1+0,
-        '=': 2+1,
-        'Eq': 1+0,
-        'default': 2+0,
-        'None': 0+1,
-        'image_data_format': 1+0,
-        'normalize_data_format': 0+1
+        'data_format': 5 + 3,
+        'if': 1 + 0,
+        '=': 2 + 1,
+        'Eq': 1 + 0,
+        'default': 2 + 0,
+        'None': 0 + 1,
+        'image_data_format': 1 + 0,
+        'normalize_data_format': 0 + 1
     }
 
 
@@ -171,16 +172,17 @@ def test_complex_example2():
                 print(self.a.b.c.d.e)
     """)
     cg = _try_build_change_graph(src, dest)
+    info = _get_label_to_node_cnt(cg)
     assert _get_label_to_node_cnt(cg) == {
-        'self': 0+1,
-        'self.a': 0+1,
-        'self.a.b': 0+1,
-        'self.a.b.c': 0+1,
-        'self.a.b.c.d': 0+1,
-        'self.a.b.c.d.e': 0+1,
-        'IsNot': 0+1,
-        'if': 0+1,
-        'None': 0+1
+        'self': 0 + 1,
+        'self.a': 0 + 1,
+        'self.a.b': 0 + 1,
+        'self.a.b.c': 0 + 1,
+        'self.a.b.c.d': 0 + 1,
+        'self.a.b.c.d.e': 1 + 1,
+        'IsNot': 0 + 1,
+        'if': 0 + 1,
+        'None': 0 + 1
     }
 
 
@@ -200,20 +202,20 @@ def test_complex_example3():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'fw': 1+0,
-        'fw.config': 1+0,
-        'config': 1+0,
-        'fw.config().getZoneByName': 1+0,
-        'getZoneByName': 1+0,
-        'fw_zone.getSettings': 1+0,
-        'getSettings': 1+0,
-        'fw_zone.update': 1+0,
-        'update': 1+0,
-        'get_fw_zone_settings': 0+1,
-        '=': 2+1,
-        'fw_zone': 4+1,
-        'fw_settings': 2+2,
-        'update_fw_settings': 0+1
+        'fw': 1 + 0,
+        'fw.config': 1 + 0,
+        'config': 1 + 0,
+        'fw.config().getZoneByName': 1 + 0,
+        'getZoneByName': 1 + 0,
+        'fw_zone.getSettings': 1 + 0,
+        'getSettings': 1 + 0,
+        'fw_zone.update': 1 + 0,
+        'update': 1 + 0,
+        'get_fw_zone_settings': 0 + 1,
+        '=': 2 + 1,
+        'fw_zone': 4 + 1,
+        'fw_settings': 2 + 2,
+        'update_fw_settings': 0 + 1
     }
 
 
@@ -237,14 +239,14 @@ def test_complex_example4():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'if': 0+1,
-        'print': 0+1,
-        'Gt': 0+1,
+        'if': 0 + 1,
+        'print': 0 + 1,
+        'Gt': 0 + 1,
         'a': 2,
-        'return': 0+1,
-        'None': 0+1,
-        'overdraft': 0+1,
-        '100': 0+1
+        'return': 0 + 1,
+        'None': 0 + 1,
+        'overdraft': 0 + 1,
+        '100': 0 + 1
     }
 
 
@@ -259,9 +261,9 @@ def test_complex_example5():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'Dense': 1+1,
-        '16': 1+1,
-        '32': 1+1,
+        'Dense': 1 + 1,
+        '16': 1 + 1,
+        '32': 1 + 1,
         'Tuple': 1,
         'input_shape': 1
     }
@@ -282,8 +284,8 @@ def test_complex_example6():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'print': 1+0,
-        'print2': 0+1,
+        'print': 1 + 0,
+        'print2': 0 + 1,
         'a': 2,
         'b': 2
     }
@@ -302,15 +304,15 @@ def test_complex_example7():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'get_exceldf': 2+0,
-        'self.get_exceldf': 2+0,
-        'self': 3+0,
-        'test1': 2+2,
-        'read_excel': 0+2,
-        'pd.read_excel': 0+2,
-        'pd': 0+2,
-        'ext': 3+3,
-        'add': 0+2
+        'get_exceldf': 2 + 0,
+        'self.get_exceldf': 2 + 0,
+        'self': 3 + 0,
+        'test1': 2 + 2,
+        'read_excel': 0 + 2,
+        'pd.read_excel': 0 + 2,
+        'pd': 0 + 2,
+        'ext': 3 + 3,
+        'add': 0 + 2
     }
 
 
@@ -328,16 +330,16 @@ def test_complex_example8():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'assertTrue': 1+1,
-        'np': 0+1,
-        'np.all': 0+1,
-        'all': 0+1,
-        'expected': 0+2,
-        'output': 0+2,
-        '=': 0+3,
-        'func': 1+1,
-        'Lt': 1+0,
-        'Eq': 0+1,
+        'assertTrue': 1 + 1,
+        'np': 0 + 1,
+        'np.all': 0 + 1,
+        'all': 0 + 1,
+        'expected': 0 + 2,
+        'output': 0 + 2,
+        '=': 0 + 3,
+        'func': 1 + 1,
+        'Lt': 1 + 0,
+        'Eq': 0 + 1,
         'input_data': 2
     }
 
@@ -360,18 +362,18 @@ def test_complex_example9():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'self._download_xml': 1+0,
-        '_download_xml': 1+0,
-        '=': 1+2,
-        'video_info': 1+1,
-        'self._download_webpage': 0+1,
-        '_download_webpage': 0+1,
-        'video_info_webpage': 0+2,
-        'fromstring': 0+1,
-        'xml.etree.ElementTree.fromstring': 0+1,
-        'xml.etree.ElementTree': 0+1,
-        'xml.etree': 0+1,
-        'xml': 0+1,
+        'self._download_xml': 1 + 0,
+        '_download_xml': 1 + 0,
+        '=': 1 + 2,
+        'video_info': 1 + 1,
+        'self._download_webpage': 0 + 1,
+        '_download_webpage': 0 + 1,
+        'video_info_webpage': 0 + 2,
+        'fromstring': 0 + 1,
+        'xml.etree.ElementTree.fromstring': 0 + 1,
+        'xml.etree.ElementTree': 0 + 1,
+        'xml.etree': 0 + 1,
+        'xml': 0 + 1,
     }
 
 
@@ -389,30 +391,32 @@ def test_complex_example10():
     """)
     cg = _try_build_change_graph(src, dest)
     assert _get_label_to_node_cnt(cg) == {
-        'level': 2+2,
-        'None': 1+1,
-        'if': 1+1,
-        'Is': 1+0,
-        'Not': 1+0,
-        'IsNot': 0+1,
-        'skewfunc': 2+0,
-        '=': 1+0,
-        'self.groupby': 1+0,
-        'groupby': 1+0,
-        'self.groupby().aggregate': 1+0,
-        'aggregate': 1+0,
-        'return': 1+1,
-        'axis': 0+3,
-        'skew': 1+1,
-        'self._agg_by_level': 0+1,
-        '_agg_by_level': 0+1,
-        'lambda': 1+0,
-        'x': 2+0,
-        'x.skew': 1+0
+        'level': 2 + 2,
+        'None': 1 + 1,
+        'if': 1 + 1,
+        'Is': 1 + 0,
+        'Not': 1 + 0,
+        'IsNot': 0 + 1,
+        'skewfunc': 2 + 0,
+        '=': 1 + 0,
+        'self.groupby': 1 + 0,
+        'groupby': 1 + 0,
+        'self.groupby().aggregate': 1 + 0,
+        'aggregate': 1 + 0,
+        'return': 1 + 1,
+        'axis': 0 + 3,
+        'skew': 1 + 1,
+        'self._agg_by_level': 0 + 1,
+        '_agg_by_level': 0 + 1,
+        'lambda': 1 + 0,
+        'x': 2 + 0,
+        'x.skew': 1 + 0
     }
 
 
 if __name__ == '__main__':
+    set_all_environment_variables()
+
     test_complex_example10()
     test_complex_example9()
     test_complex_example8()

@@ -166,6 +166,10 @@ class OperationNode(StatementNode):
         PASS = 'pass'
         LAMBDA = 'lambda'
         ASSIGN = '='
+        LISTCOMP = 'ListComprehension'
+        DICTCOMP = 'DictComprehension'
+        GENERATOREXPR = 'GeneratorExpression'
+        COMPREHENSION = 'comprehension'
 
     class Kind:
         COLLECTION = 'collection'
@@ -180,8 +184,12 @@ class OperationNode(StatementNode):
         UNARY = 'unary'
         BOOL = 'bool'
         BINARY = 'binary'
-
+        LISTCOMP = 'list-comp'
+        DICTCOMP = 'dict-comp'
+        COMPREHENSION = 'comprehension'
+        GENERATOREXPR = 'generator-expr'
         UNCLASSIFIED = 'unclassified'
+
 
     def __init__(self, label, ast, control_branch_stack, /, *, kind=None, key=None):
         super().__init__(label, ast, control_branch_stack)
@@ -199,8 +207,9 @@ class ControlNode(StatementNode):
         WHILE = 'while'
         TRY = 'try'
         EXCEPT = 'except'
+        ASSERT = 'assert'
 
-        ALL = [IF, FOR, TRY, EXCEPT]
+        ALL = [IF, FOR, TRY, EXCEPT, ASSERT]
 
     def __init__(self, label, ast, control_branch_stack, /):
         super().__init__(label, ast, control_branch_stack)
@@ -393,12 +402,16 @@ class ExtControlFlowGraph:
         self.entry_node = entry_node
         self.nodes.add(entry_node)
 
+    def get_control_nodes(self):
+        control_nodes = []
+        for node in self.nodes:
+            if isinstance(node, ControlNode):
+                control_nodes.append(node)
+
     def map_to_gumtree(self, gt):
         from changegraph.gumtree import GumTree
-
         logger.info('Trying to stick pfg to gumtree')
         self.gumtree = gt
-
         with open(gt.source_path, 'r+') as f:
             lr = vb_utils.LineReader(''.join(f.readlines()))
 
@@ -431,6 +444,11 @@ class ExtControlFlowGraph:
                 elif isinstance(node.ast, ast.FunctionDef):
                     if node.kind == DataNode.Kind.VARIABLE_DECL:
                         type_label = GumTree.TypeLabel.FUNC_DEF
+                elif isinstance(node.ast, ast.Subscript):
+                    if node.kind == DataNode.Kind.SUBSCRIPT:
+                        type_label = GumTree.TypeLabel.SUBSCRIPT_LOAD
+                    elif node.kind == DataNode.Kind.VARIABLE_DECL:
+                        type_label = GumTree.TypeLabel.SUBSCRIPT_STORE
                 else:
                     if node.kind == DataNode.Kind.VARIABLE_USAGE:
                         type_label = GumTree.TypeLabel.NAME_LOAD
@@ -441,6 +459,14 @@ class ExtControlFlowGraph:
                     type_label = GumTree.TypeLabel.ASSIGN
                 elif node.kind == OperationNode.Kind.FUNC_CALL:
                     type_label = GumTree.TypeLabel.FUNC_CALL
+                elif node.kind == OperationNode.Kind.LISTCOMP:
+                    type_label = GumTree.TypeLabel.LISTCOMP
+                elif node.kind == OperationNode.Kind.DICTCOMP:
+                    type_label = GumTree.TypeLabel.DICTCOMP
+                elif node.kind == OperationNode.Kind.GENERATOREXPR:
+                    type_label = GumTree.TypeLabel.GENERATOREXPR
+                elif node.kind == OperationNode.Kind.COMPREHENSION:
+                    type_label = GumTree.TypeLabel.COMPREHENSION
 
             found = gt.find_node(pos, length, type_label=type_label)
             if found:

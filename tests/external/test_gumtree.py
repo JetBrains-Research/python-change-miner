@@ -47,6 +47,7 @@ def test_matches():
 
     def matches_sort_fn(e):
         return e['src'] * 10000 + e['dest']
+
     matches = sorted(matches, key=matches_sort_fn)
 
     assert matches == sorted([
