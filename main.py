@@ -37,7 +37,7 @@ def main():
             app_version=str(datetime.datetime.now())
         )
 
-    sys.setrecursionlimit(2**31-1)
+    sys.setrecursionlimit(2 ** 31 - 1)
     multiprocessing.set_start_method('spawn', force=True)
 
     parser = argparse.ArgumentParser()
@@ -68,7 +68,12 @@ def main():
         fg = changegraph.build_from_files(args.src, args.dest)
         changegraph.export_graph_image(fg, args.output)
     elif current_mode == RunModes.COLLECT_CHANGE_GRAPHS:
-        GitAnalyzer().build_change_graphs()
+        parser.add_argument('--only-tests',
+                            help='Collect cgs only for the files with "test" substring in the name',
+                            action='store_true')
+        args = parser.parse_args()
+
+        GitAnalyzer().build_change_graphs(args.only_tests)
     elif current_mode == RunModes.MINE_PATTERNS:
         parser.add_argument('-s', '--src', help='Path to source code before changes', type=str, nargs='+')
         parser.add_argument('-d', '--dest', help='Path to source code after changes', type=str, nargs='+')
@@ -125,7 +130,7 @@ def main():
                     logger.warning(f'Incorrect file {file_path}')
 
                 if file_num % 1000 == 0:
-                    logger.warning(f'Loaded [{1+file_num}/{len(file_names)}] files')
+                    logger.warning(f'Loaded [{1 + file_num}/{len(file_names)}] files')
             logger.warning('Pattern mining has started')
 
             miner = Miner()
