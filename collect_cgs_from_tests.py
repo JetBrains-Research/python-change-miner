@@ -1,6 +1,8 @@
 import argparse
+import multiprocessing
 import os
 import pickle
+import sys
 import tempfile
 import uuid
 from pathlib import Path
@@ -9,6 +11,7 @@ from typing import List
 import changegraph
 import settings
 from changegraph.models import ChangeGraph
+from deployment import set_all_environment_variables
 from log import logger
 from vcs.traverse import GitAnalyzer, RepoInfo
 
@@ -110,6 +113,10 @@ def main(src_dir: str):
 
 
 if __name__ == '__main__':
+    set_all_environment_variables()
+    sys.setrecursionlimit(2 ** 31 - 1)
+    multiprocessing.set_start_method('spawn', force=True)
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--src', help='Path to directory with before and after versions', type=str, required=True)
     args = parser.parse_args()
