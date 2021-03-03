@@ -8,6 +8,7 @@ import time
 import json
 import subprocess
 import datetime
+from functools import partial
 
 from log import logger
 from pydriller import RepositoryMining
@@ -52,7 +53,7 @@ class GitAnalyzer:
         with open(self._data_file_dir, 'w+') as f:
             json.dump(self._data, f, indent=4)
 
-    def build_change_graphs(self):
+    def build_change_graphs(self, parse_only_tests=False):
         repo_names = [
             name for name in os.listdir(self.GIT_REPOSITORIES_DIR)
             if not name.startswith('_') and not name.startswith('.') and name not in self._data['visited']]
@@ -65,11 +66,11 @@ class GitAnalyzer:
 
         if GitAnalyzer.TRAVERSE_ASYNC:
             with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
-                self._mine_changes(repo_names, pool=pool)
+                self._mine_changes(repo_names, pool=pool, parse_only_tests=parse_only_tests)
         else:
-            self._mine_changes(repo_names)
+            self._mine_changes(repo_names, parse_only_tests=parse_only_tests)
 
-    def _mine_changes(self, repo_names, pool=None):
+    def _mine_changes(self, repo_names, pool=None, parse_only_tests=False):
         for repo_num, repo_name in enumerate(repo_names):
             logger.warning(f'Looking at repo {repo_name} [{repo_num + 1}/{len(repo_names)}]')
 
@@ -81,12 +82,12 @@ class GitAnalyzer:
 
             if pool and len(commits) > 0:
                 try:
-                    pool.map(self._build_and_store_change_graphs, commits)
+                    pool.starmap(self._build_and_store_change_graphs, zip(commits, [parse_only_tests] * len(commits)))
                 except:
                     logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
             else:
                 for commit in commits:
-                    self._build_and_store_change_graphs(commit)
+                    self._build_and_store_change_graphs(commit, parse_only_tests)
 
             logger.warning(f'Done building change graphs for repo={repo_name} [{repo_num + 1}/{len(repo_names)}]',
                            start_time=start)
@@ -163,7 +164,7 @@ class GitAnalyzer:
         logger.info(f'Storing graphs to {filename} finished', show_pid=True)
 
     @staticmethod
-    def _build_and_store_change_graphs(commit):
+    def _build_and_store_change_graphs(commit, parse_only_tests=False):
         change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
         logger.info(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)
@@ -174,6 +175,10 @@ class GitAnalyzer:
 
             if not all([mod['old_path'].endswith('.py'), mod['new_path'].endswith('.py')]):
                 continue
+
+            if parse_only_tests:
+                if mod['old_path'].find('test') == -1 and mod['new_path'].find('test') == -1:
+                    continue
 
             old_method_to_new = GitAnalyzer._get_methods_mapping(
                 GitAnalyzer._extract_methods(mod['old_path'], mod['old_src']),
