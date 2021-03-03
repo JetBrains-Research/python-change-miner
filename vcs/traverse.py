@@ -8,6 +8,7 @@ import time
 import json
 import subprocess
 import datetime
+from functools import partial
 
 from log import logger
 from pydriller import RepositoryMining
@@ -81,7 +82,7 @@ class GitAnalyzer:
 
             if pool and len(commits) > 0:
                 try:
-                    pool.map(lambda commit: self._build_and_store_change_graphs(commit, parse_only_tests), commits)
+                    pool.starmap(self._build_and_store_change_graphs, zip(commits, [parse_only_tests] * len(commits)))
                 except:
                     logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
             else:
