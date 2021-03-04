@@ -8,6 +8,8 @@ import uuid
 from pathlib import Path
 from typing import List
 
+from tqdm import tqdm
+
 import changegraph
 import settings
 from changegraph.models import ChangeGraph
@@ -33,83 +35,94 @@ def store_change_graphs(change_graphs: List[ChangeGraph]):
     logger.info(f'Storing graphs to {filename} finished', show_pid=True)
 
 
-def main(src_dir: str):
+def mine_changes(path_to_repo_dir: str):
     change_graphs = []
 
-    try:
+    for dirname, _, files in os.walk(path_to_repo_dir):
+        old_file_path, new_file_path = None, None
+        for filename in files:
+            if filename.endswith('.before.py'):
+                old_file_path = os.path.join(dirname, filename)
+            elif filename.endswith('.after.py'):
+                new_file_path = os.path.join(dirname, filename)
 
-        for dirname, _, files in os.walk(src_dir):
-            before_path, after_path = None, None
-            for filename in files:
-                if filename.endswith('.before.py'):
-                    before_path = os.path.join(dirname, filename)
-                elif filename.endswith('.after.py'):
-                    after_path = os.path.join(dirname, filename)
+        if not old_file_path or not new_file_path:
+            continue
 
-            if before_path and after_path:
-                with open(before_path, 'r') as before_file, open(after_path, 'r') as after_file:
-                    before_src = before_file.read()
-                    after_src = after_file.read()
+        with open(old_file_path, 'r') as before_file, open(new_file_path, 'r') as after_file:
+            before_src = before_file.read()
+            after_src = after_file.read()
 
-                old_method_to_new = GitAnalyzer._get_methods_mapping(
-                    GitAnalyzer._extract_methods(before_path, before_src),
-                    GitAnalyzer._extract_methods(after_path, after_src)
+        old_method_to_new = GitAnalyzer._get_methods_mapping(
+            GitAnalyzer._extract_methods(old_file_path, before_src),
+            GitAnalyzer._extract_methods(new_file_path, after_src)
+        )
+
+        for old_method, new_method in old_method_to_new.items():
+            old_method_src = old_method.get_source()
+            new_method_src = new_method.get_source()
+
+            if not all([old_method_src, new_method_src]) or old_method_src.strip() == new_method_src.strip():
+                continue
+
+            line_count = max(old_method_src.count('\n'), new_method_src.count('\n'))
+            if line_count > settings.get('traverse_file_max_line_count'):
+                logger.info(f'Ignored files due to line limit: {old_file_path}')
+                continue
+
+            with tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t1, \
+                    tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t2:
+
+                t1.writelines(old_method_src)
+                t1.seek(0)
+                t2.writelines(new_method_src)
+                t2.seek(0)
+
+                local_repo_path = Path(old_file_path).parent.parent
+                repo_info = RepoInfo(
+                    repo_name=local_repo_path.name,
+                    repo_path=local_repo_path,
+                    repo_url='',
+                    commit_hash='',
+                    commit_dtm='',
+                    old_file_path=old_file_path,
+                    new_file_path=new_file_path,
+                    old_method=old_method,
+                    new_method=new_method
                 )
 
-                for old_method, new_method in old_method_to_new.items():
-                    old_method_src = old_method.get_source()
-                    new_method_src = new_method.get_source()
+                try:
+                    cg = changegraph.build_from_files(os.path.realpath(t1.name), os.path.realpath(t2.name), repo_info)
+                except Exception:
+                    logger.log(logger.ERROR,
+                               f'Unable to build a change graph for '
+                               f'method={old_method.full_name}, '
+                               f'line={old_method.ast.lineno}', exc_info=True, show_pid=True)
+                    continue
 
-                    if not all([old_method_src, new_method_src]) or old_method_src.strip() == new_method_src.strip():
-                        continue
+                change_graphs.append(cg)
 
-                    line_count = max(old_method_src.count('\n'), new_method_src.count('\n'))
-                    if line_count > settings.get('traverse_file_max_line_count'):
-                        logger.info(f'Ignored files due to line limit: {before_path}')
-                        continue
-
-                    with tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t1, \
-                            tempfile.NamedTemporaryFile(mode='w+t', suffix='.py') as t2:
-
-                        t1.writelines(old_method_src)
-                        t1.seek(0)
-                        t2.writelines(new_method_src)
-                        t2.seek(0)
-
-                        repo_info = RepoInfo(
-                            Path(dirname).parent.name,
-                            dirname,
-                            '',
-                            '',
-                            '',
-                            before_path,
-                            after_path,
-                            old_method,
-                            new_method
-                        )
-
-                        try:
-                            cg = changegraph.build_from_files(os.path.realpath(t1.name), os.path.realpath(t2.name),
-                                                              repo_info=repo_info)
-                        except:
-                            logger.log(logger.ERROR,
-                                       f'Unable to build a change graph for '
-                                       f'method={old_method.full_name}, '
-                                       f'line={old_method.ast.lineno}', exc_info=True, show_pid=True)
-                            continue
-
-                        change_graphs.append(cg)
-
-                        if len(change_graphs) >= GitAnalyzer.STORE_INTERVAL:
-                            store_change_graphs(change_graphs)
-                            change_graphs.clear()
-
-    except KeyboardInterrupt:
-        logger.info('KeyboardInterrupt: change-graphs will be stored before exit')
+                if len(change_graphs) > GitAnalyzer.STORE_INTERVAL:
+                    store_change_graphs(change_graphs)
+                    change_graphs.clear()
 
     if change_graphs:
-        GitAnalyzer._store_change_graphs(change_graphs)
-        change_graphs.clear()
+        store_change_graphs(change_graphs)
+
+
+def main(src_dir: str, parallel: bool = False):
+    # Traverse all the subdirectories to find before-after pairs
+    paths = []
+    for repo_name in os.listdir(src_dir):
+        paths.append(os.path.join(src_dir, repo_name))
+
+    # Build and save change graphs
+    if parallel:
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+            list(tqdm(pool.imap(mine_changes, paths), total=len(paths)))
+    else:
+        for path in tqdm(paths):
+            mine_changes(path)
 
 
 if __name__ == '__main__':
@@ -119,6 +132,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('-s', '--src', help='Path to directory with before and after versions', type=str, required=True)
+    parser.add_argument('--parallel', help='Run in parallel', action='store_true')
     args = parser.parse_args()
 
-    main(args.src)
+    main(args.src, args.parallel)
