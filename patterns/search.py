@@ -14,7 +14,8 @@ import settings
 import changegraph
 from log import logger
 from changegraph.models import ChangeNode
-from patterns.models import Fragment, Pattern
+from patterns.models import Fragment, Pattern, InitialNodesGroup
+from pyflowgraph.models import LinkType
 
 
 class Miner:
@@ -28,7 +29,8 @@ class Miner:
 
     MIN_DATE = None
     if settings.get('patterns_min_date', required=False):
-        MIN_DATE = datetime.datetime.strptime(settings.get('patterns_min_date', required=False), '%d.%m.%Y') \
+        MIN_DATE = datetime.datetime.strptime(settings.get('patterns_min_date', required=False),
+                                              '%d.%m.%Y') \
             .replace(tzinfo=datetime.timezone.utc)
 
     def __init__(self):
@@ -52,7 +54,7 @@ class Miner:
         # TODO: delete assign nodes?
         # TODO: collapse literals?
 
-        label_to_node_pairs = {}
+        label_to_nodes_groups = {}
         for graph in graphs:
             if self.MIN_DATE and graph.repo_info.commit_dtm < self.MIN_DATE:
                 continue
@@ -61,25 +63,36 @@ class Miner:
                 if node.version != ChangeNode.Version.BEFORE_CHANGES or not node.mapped:
                     continue
 
-                if not (node.kind == ChangeNode.Kind.OPERATION_NODE
-                        and node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL):
-                    # or node.kind == ChangeNode.Kind.CONTROL_NODE):
+                # TODO: add asserts that are substrings in the func calls
+
+                if not (node.kind == ChangeNode.Kind.CONTROL_NODE and node.label == 'assert'):
                     continue
 
-                label = f'{node.label}~{node.mapped.label}'
-                arr = label_to_node_pairs.setdefault(label, [])
-                arr.append((node, node.mapped))
+                for in_edge in node.in_edges:
+                    if in_edge.label != LinkType.MAP:
+                        group = InitialNodesGroup()
+                        group.nodes = [in_edge.node_from, node, node.mapped]
+                        group.edge_labels = [in_edge.label, LinkType.MAP]
+                        label_to_nodes_groups.setdefault(group.get_group_label(), []).append(group)
 
-        logger.warning(f'Total pairs after the first step = {len(label_to_node_pairs.values())}')
+                for out_edge in node.out_edges:
+                    if out_edge.label != LinkType.MAP:
+                        group = InitialNodesGroup()
+                        group.nodes = [out_edge.node_to, node, node.mapped]
+                        group.edge_labels = [out_edge.label, LinkType.MAP]
+                        label_to_nodes_groups.setdefault(group.get_group_label(), []).append(group)
 
-        for num, pairs in enumerate(label_to_node_pairs.values()):
+        logger.warning(
+            f'Total number of groups after the first step = {len(label_to_nodes_groups.values())}')
+
+        for num, groups in enumerate(label_to_nodes_groups.values()):
             logger.warning(f'Looking at node pair #{num + 1}')
 
-            if len(pairs) < Pattern.MIN_FREQUENCY:
+            if len(groups) < Pattern.MIN_FREQUENCY:
                 logger.warning('Skipping...')
                 continue
 
-            fragments = set([Fragment.create_from_node_pair(pair) for pair in pairs])
+            fragments = set([Fragment.create_from_nodes_group(group) for group in groups])
             pattern = Pattern(fragments, len(fragments))
             pattern = pattern.extend()
 
@@ -104,7 +117,7 @@ class Miner:
             logger.info('Done removing overlapped fragments from patterns')
 
     def _filter_patterns(self):
-        keys = sorted(self._size_to_patterns.keys())
+        keys = sorted(self._size_to_patterns)
         cleared_keys = set()
 
         for size1 in keys:
@@ -211,13 +224,16 @@ class Miner:
                 logger.error(f'Unable to print fragment {fragment.id} for pattern {pattern.id}, '
                              f'commit=#{fragment.graph.repo_info.commit_hash}, '
                              f'file={fragment.graph.repo_info.old_method.file_path}, '
-                             f'method={fragment.graph.repo_info.old_method.full_name}', exc_info=True)
+                             f'method={fragment.graph.repo_info.old_method.full_name}',
+                             exc_info=True)
 
     @classmethod
     def _print_fragment(cls, pattern, out_dir, fragment):
         file_suffix = f'-{fragment.id}' if cls.FULL_PRINT else ''
-        changegraph.print_out_nodes(fragment.nodes, path=os.path.join(out_dir, f'fragment{file_suffix}.dot'))
-        changegraph.export_graph_image(fragment.graph, path=os.path.join(out_dir, f'graph{file_suffix}.dot'))
+        changegraph.print_out_nodes(fragment.nodes,
+                                    path=os.path.join(out_dir, f'fragment{file_suffix}.dot'))
+        changegraph.export_graph_image(fragment.graph,
+                                       path=os.path.join(out_dir, f'graph{file_suffix}.dot'))
 
         sample = cls._generate_html_sample(f'{pattern.id}{file_suffix}', fragment)
         if sample:
@@ -268,7 +284,8 @@ class Miner:
     def _generate_html_details(cls, pattern):
         instances = []
         for fragment in pattern.fragments:
-            instances.append(cls._generate_html_instance(fragment, is_repr=fragment == pattern.repr))
+            instances.append(
+                cls._generate_html_instance(fragment, is_repr=fragment == pattern.repr))
 
         inner = f''
         if not cls.FULL_PRINT:
@@ -451,7 +468,8 @@ class Miner:
             start += offset
             end += offset
 
-            escaped_markup = markup[:last_end] + html.escape(markup[last_end:start]) + markup[start:]
+            escaped_markup = markup[:last_end] + html.escape(markup[last_end:start]) + markup[
+                                                                                       start:]
             offset_delta = len(escaped_markup) - len(markup)
             markup = escaped_markup
 
