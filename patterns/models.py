@@ -163,7 +163,7 @@ class Fragment:
 
     def __recalc_vector(self, node, ext_by_one_nodes):
         exas_feature = ExasFeature(nodes=ext_by_one_nodes)
-        sequence = deque(node.label)
+        sequence = deque([node.label])
         self.__exas_backward_dfs(node, node, sequence, exas_feature)
 
     def __exas_backward_dfs(self, first_node, last_node, sequence, exas_feature):
