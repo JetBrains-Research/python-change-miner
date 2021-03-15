@@ -92,7 +92,7 @@ def mine_changes(path_to_repo_dir: str):
                     local_repo_path = Path(old_file_path).parent.parent
                     repo_info = RepoInfo(
                         repo_name=local_repo_path.name,
-                        repo_path=local_repo_path,
+                        repo_path=str(local_repo_path),
                         repo_url='',
                         commit_hash='',
                         commit_dtm='',
