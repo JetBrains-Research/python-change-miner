@@ -360,7 +360,7 @@ class Fragment:
         intersection = set(self.nodes).intersection(
             set(fragment.nodes))  # todo: performance analysis
         for node in intersection:
-            if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
+            if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL or node.label == 'assert':
                 return True
         return False
 
