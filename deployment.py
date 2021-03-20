@@ -6,7 +6,7 @@ PYTHON_BIN_ENV_VAR = "GUMTREE_PYTHON_BIN"
 PYPARSER_ENV_VAR = "GUMTREE_PYPARSER_PATH"
 
 PYTHON_BIN_VALUE = "python3"
-PYPARSER_NAME = 'pythonparser_3.py'
+PYPARSER_NAME = 'pythonparser'
 
 
 def set_environment_variable(env_var, value):
