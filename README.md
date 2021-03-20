@@ -22,7 +22,7 @@ potential IDE inspections.
 
 ## Getting started
 
-0. The tool requires Python 3.8+ to run. We have also tested it only on Linux and macOS systems.
+0. The tool requires Python 3.8+ to run. We have also tested it only on Ubuntu OS.
 1. Install the required dependencies:
 
     ```shell script
@@ -38,11 +38,12 @@ potential IDE inspections.
 
 
 3. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need
-   to setup [GumTree](https://github.com/GumTreeDiff/gumtree). But you can use the compiled version of GumTree
-   (can be found in the [_external_](https://github.com/JetBrains-Research/code-change-miner/tree/master/external)
-   directory), it is slightly modified and uses environment variables `GUMTREE_PYTHON_BIN`
-   (python interpreter path for GumTree pyparser calls) and `GUMTREE_PYPARSER_PATH` (python parser script path). **They
-   are set up automatically.**
+   to setup [GumTree](https://github.com/GumTreeDiff/gumtree). But to improve the overall performance of the tool, we suggest you to compile
+   GumTree to a native-image using GraalVM. For that purpose, you can run the following command from the project root dir:
+   
+   ```shell script
+   bash external/gumtree-native/create-native-image.sh
+   ```
 
 ## How to use
 
