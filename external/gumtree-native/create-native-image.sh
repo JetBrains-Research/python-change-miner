@@ -23,7 +23,7 @@ gu install native-image
 
 
 java -agentlib:native-image-agent=config-output-dir="." -cp "build/install/gumtree/lib/*" com.github.gumtreediff.client.Run
-java -agentlib:native-image-agent=config-output-dir="." -cp "build/install/gumtree/lib/*" com.github.gumtreediff.client.Ru jsondiff jni-config.json serialization-config.json
+java -agentlib:native-image-agent=config-output-dir="." -cp "build/install/gumtree/lib/*" com.github.gumtreediff.client.Run jsondiff jni-config.json serialization-config.json
 
 native-image --initialize-at-build-time=org.eclipse.jdt.internal.compiler,org.eclipse.core.runtime.Platform,org.eclipse.core.internal.runtime.Messages,org.eclipse.jdt.internal.core.JavaModelManager,org.eclipse.jdt.internal.core,org.eclipse.jdt.internal.core.ExternalFoldersManager,org.eclipse.core.runtime.Path,org.eclipse.osgi.util.NLS,org.eclipse.core.internal.runtime.CommonMessages,org.eclipse.core.internal.utils.Messages,org.eclipse.jdt.internal.core.JavaModelStatus,org.eclipse.core.runtime.Status,org.eclipse.core.internal.preferences.PreferencesService,org.eclipse.core.internal.preferences.InstancePreferences,org.eclipse.core.internal.preferences.ConfigurationPreferences,org.eclipse.core.internal.preferences.BundleDefaultPreferences,org.eclipse.core.internal.preferences.EclipsePreferences,org.eclipse.core.internal.preferences.DefaultPreferences -H:ReflectionConfigurationFiles=reflect-config.json -H:ResourceConfigurationFiles=resource-config.json --initialize-at-run-time=org.eclipse.jdt.internal.core.ClasspathEntry -cp "build/install/gumtree/lib/*" com.github.gumtreediff.client.Run gumtree --no-fallback
 
