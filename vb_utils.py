@@ -28,16 +28,27 @@ def deep_merge(v1, v2):
 
 def filter_list(lst, condition, post_condition_fn=None):
     i = 0
+    remove = [False] * len(lst)
     while i < len(lst) - 1:
+        if remove[i]:
+            i += 1
+            continue
         j = i + 1
         while j < len(lst):
+            if remove[j]:
+                j += 1
+                continue
             if condition(i, j):
                 if post_condition_fn:
                     post_condition_fn(i, j)
-                del lst[j]
-            else:
-                j += 1
+                remove[j] = True
+            j += 1
         i += 1
+    new_lst = []
+    for i, item in enumerate(lst):
+        if not remove[i]:
+            new_lst.append(item)
+    lst[:] = new_lst
 
 
 class LineReader:

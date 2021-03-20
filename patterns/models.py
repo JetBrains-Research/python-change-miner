@@ -2,6 +2,7 @@ import copy
 import time
 import multiprocessing
 import functools
+from collections import deque
 
 from typing import Set, Optional, Dict, FrozenSet, Tuple
 
@@ -101,7 +102,8 @@ class Fragment:
         self.vector.add_feature(exas_feature.get_id_by_label(pair[0].label))
         self.vector.add_feature(exas_feature.get_id_by_label(pair[1].label))
 
-        self.vector.add_feature(exas_feature.get_id_by_labels(labels=[pair[0].label, LinkType.MAP, pair[1].label]))
+        self.vector.add_feature(
+            exas_feature.get_id_by_labels(labels=[pair[0].label, LinkType.MAP, pair[1].label]))
 
     @classmethod
     def create_extended(cls, fragment, ext_nodes: tuple):
@@ -124,7 +126,7 @@ class Fragment:
 
     def __recalc_vector(self, node, ext_by_one_nodes):
         exas_feature = ExasFeature(nodes=ext_by_one_nodes)
-        sequence = [node.label]
+        sequence = deque([node.label])
         self.__exas_backward_dfs(node, node, sequence, exas_feature)
 
     def __exas_backward_dfs(self, first_node, last_node, sequence, exas_feature):
@@ -134,11 +136,11 @@ class Fragment:
         if len(sequence) < ExasFeature.MAX_LENGTH:
             for e in first_node.in_edges:
                 if e.node_from in self.nodes:
-                    sequence.insert(0, e.label)
-                    sequence.insert(0, e.node_from.label)
+                    sequence.appendleft(e.label)
+                    sequence.appendleft(e.node_from.label)
                     self.__exas_backward_dfs(e.node_from, last_node, sequence, exas_feature)
-                    del sequence[0]
-                    del sequence[0]
+                    sequence.popleft()
+                    sequence.popleft()
 
     def __exas_forward_dfs(self, node, sequence, exas_feature):
         logger.debug('Entering forward dfs', show_pid=True)
@@ -153,8 +155,8 @@ class Fragment:
                     sequence.append(e.label)
                     sequence.append(e.node_to.label)
                     self.__exas_forward_dfs(e.node_to, sequence, exas_feature)
-                    del sequence[-1]
-                    del sequence[-1]
+                    sequence.pop()
+                    sequence.pop()
 
     def get_label_to_ext_list(self):
         adjacent_nodes = set()
@@ -177,7 +179,8 @@ class Fragment:
                 else:
                     defs = node.get_definitions()
                     if not defs:
-                        non_refs = node.get_out_nodes(excluded_labels=[LinkType.REFERENCE, LinkType.MAP])
+                        non_refs = node.get_out_nodes(
+                            excluded_labels=[LinkType.REFERENCE, LinkType.MAP])
                         if non_refs.intersection(set(self.nodes)):
                             self._add_extension(label_to_extensions, node)
                         else:
@@ -262,11 +265,13 @@ class Fragment:
         groups: Set[FrozenSet[Fragment]] = set()
 
         hash_to_fragments: Dict[int, Set[Fragment]] = cls._get_hash_to_fragments(fragments)
-        logger.info(f'Done hash calculations, buckets={len(hash_to_fragments.keys())}', show_pid=True)
+        logger.info(f'Done hash calculations, buckets={len(hash_to_fragments.keys())}',
+                    show_pid=True)
 
         for key, fragments in hash_to_fragments.items():
             logger.debug(f'Bucket hash = {key}', show_pid=True)
-            groups = groups.union(cls._group_same_hash_fragments(fragments))  # do grouping within calculated hash
+            groups = groups.union(
+                cls._group_same_hash_fragments(fragments))  # do grouping within calculated hash
         return groups
 
     @classmethod
@@ -288,7 +293,8 @@ class Fragment:
             if len(group) >= Pattern.MIN_FREQUENCY:
                 group: Set[Fragment] = cls._remove_duplicates(group)
                 if len(group) >= Pattern.MIN_FREQUENCY:
-                    logger.log(logger.INFO, f'A new group has been created, len = {len(group)}', show_pid=True)
+                    logger.log(logger.INFO, f'A new group has been created, len = {len(group)}',
+                               show_pid=True)
                     groups.add(frozenset(group))
         return groups
 
@@ -299,7 +305,8 @@ class Fragment:
 
         lst = list(group)  # todo escape convertions
         vb_utils.filter_list(lst, condition=lambda i, j: lst[i].is_equal(lst[j]))
-        logger.log(logger.INFO, f'Remove duplicates: affected {len(group) - len(lst)} items', show_pid=True)
+        logger.log(logger.INFO, f'Remove duplicates: affected {len(group) - len(lst)} items',
+                   show_pid=True)
 
         return set(lst)
 
@@ -313,7 +320,8 @@ class Fragment:
         return hash_to_fragments
 
     def overlap(self, fragment):
-        intersection = set(self.nodes).intersection(set(fragment.nodes))  # todo: performance analysis
+        intersection = set(self.nodes).intersection(
+            set(fragment.nodes))  # todo: performance analysis
         for node in intersection:
             if node.sub_kind == ChangeNode.SubKind.OP_FUNC_CALL:
                 return True
@@ -381,7 +389,8 @@ class Pattern:
             if len(v) >= self.MIN_FREQUENCY
         }
         logger.warning(f'Dict label_to_fragment_to_ext_list with '
-                       f'{len(label_to_fragment_to_ext_list.items())} items was constructed', start_time=start_time)
+                       f'{len(label_to_fragment_to_ext_list.items())} items was constructed',
+                       start_time=start_time)
 
         freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
@@ -419,7 +428,8 @@ class Pattern:
         has_result = False
         if self.DO_ASYNC_MINING:
             try:
-                with multiprocessing.Pool(processes=multiprocessing.cpu_count(), maxtasksperchild=1000) as pool:
+                with multiprocessing.Pool(processes=multiprocessing.cpu_count(),
+                                          maxtasksperchild=1000) as pool:
                     fn = functools.partial(self._get_most_freq_group_and_freq_in_label,
                                            len(label_to_fragment_to_ext_list))
 
@@ -434,7 +444,8 @@ class Pattern:
                 logger.error('Unable to process freq groups in the async mode', exc_info=True)
 
         if not has_result:
-            for label_num, (label, fragment_to_ext_list) in enumerate(label_to_fragment_to_ext_list.items()):
+            for label_num, (label, fragment_to_ext_list) in enumerate(
+                    label_to_fragment_to_ext_list.items()):
                 curr_group, curr_freq = self._get_most_freq_group_and_freq_in_label(
                     len(label_to_fragment_to_ext_list), (label_num, (label, fragment_to_ext_list)))
 
@@ -442,7 +453,8 @@ class Pattern:
                     freq_group = curr_group
                     freq = curr_freq
 
-        logger.warning(f'The most freq group has freq={freq} and fr cnt={len(freq_group)}', start_time=start_time)
+        logger.warning(f'The most freq group has freq={freq} and fr cnt={len(freq_group)}',
+                       start_time=start_time)
         return freq_group, freq
 
     def _get_most_freq_group_and_freq_in_label(self, labels_cnt, data):
@@ -471,7 +483,8 @@ class Pattern:
     def _get_most_freq_group_and_freq_for_fragments(self, ext_fragments: set, is_giant):
         start = time.time()
         groups: Set[FrozenSet[Fragment]] = Fragment.create_groups(ext_fragments)
-        logger.log(logger.INFO, f'Groups for {len(ext_fragments)} fragments created', start_time=start, show_pid=True)
+        logger.log(logger.INFO, f'Groups for {len(ext_fragments)} fragments created',
+                   start_time=start, show_pid=True)
 
         freq_group: Set[Fragment] = set()
         freq = self.MIN_FREQUENCY - 1

@@ -15,7 +15,7 @@ class ExasFeature:
     Features characterize code fragments
     Read more: "Accurate and Efficient Structural Characteristic Feature Extraction"
     """
-    MAX_LENGTH = 2 ** 3 - 1
+    MAX_LENGTH = 5
 
     def __init__(self, nodes=None):
         self.node_label_to_feature_id = {}
