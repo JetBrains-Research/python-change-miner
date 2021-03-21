@@ -82,7 +82,7 @@ class GitAnalyzer:
 
             if pool and len(commits) > 0:
                 try:
-                    pool.starmap(self._build_and_store_change_graphs, zip(commits, [parse_only_tests] * len(commits)))
+                    pool.map(self._build_and_store_change_graphs, commits)
                 except:
                     logger.error(f'Pool.map failed for repo {repo_name}', exc_info=True)
             else:
