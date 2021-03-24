@@ -360,6 +360,7 @@ class Pattern:
     DO_ASYNC_MINING = settings.get('patterns_async_mining', False)
     MIN_FREQUENCY = settings.get('patterns_min_frequency', 3)
     MAX_FREQUENCY = settings.get('patterns_max_frequency', 1000)
+    MAX_SIZE = settings.get('patterns_max_size', 12)
 
     def __init__(self, fragments, freq=None):
         self.id: Optional[int] = None  # unset until the pattern is not added to a miner
@@ -394,7 +395,9 @@ class Pattern:
 
         freq_group, freq = self._get_most_freq_group_and_freq(label_to_fragment_to_ext_list)
 
-        if freq >= Pattern.MIN_FREQUENCY:
+        if (freq_group
+                and len(next(iter(freq_group)).nodes) <= Pattern.MAX_SIZE
+                and freq >= Pattern.MIN_FREQUENCY):
             extended_pattern = Pattern(freq_group, freq)
 
             new_nodes = []
