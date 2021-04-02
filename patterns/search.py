@@ -236,12 +236,13 @@ class Miner:
                     },
                     'repo': {
                         'name': repo_info.repo_name,
-                        'path': repo_info.repo_path,
+                        'path': str(repo_info.repo_path),
                         'url': repo_info.repo_url
                     },
                     'commit': {
                         'hash': repo_info.commit_hash,
-                        'dtm': repo_info.commit_dtm.strftime('%d.%m.%Y %H:%M:%S')
+                        'dtm': repo_info.commit_dtm.strftime(
+                            '%d.%m.%Y %H:%M:%S') if repo_info.commit_dtm else None
                     },
                     'files': {
                         'old': {
