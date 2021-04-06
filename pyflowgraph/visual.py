@@ -30,7 +30,7 @@ def _convert_to_visual_graph(graph: ExtControlFlowGraph, file_name: str,
                              show_op_kinds=True, show_data_keys=False, show_control_branch=False,
                              separate_mapped=True, show_entry_node=True,
                              min_statement_num=None, max_statement_num=None):
-    vg = gv.Digraph(name=file_name, format='pdf')
+    vg = gv.Digraph(name=file_name, format='dot')
 
     used = {}
     for node in graph.nodes:

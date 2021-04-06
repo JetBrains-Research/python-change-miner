@@ -1,21 +1,22 @@
+import argparse
 import ast
+import datetime
+import multiprocessing
 import os
 import pickle
 import sys
-import stackimpact
-import datetime
-import argparse
-import multiprocessing
 
+import stackimpact
+
+import changegraph
+import pyflowgraph
+import settings
+from deployment import set_all_environment_variables
 from log import logger
 from patterns import Miner
 from patterns.models import Fragment, Pattern
+from patterns.saving import print_patterns_from_dump
 from vcs.traverse import GitAnalyzer, RepoInfo, Method
-from deployment import set_all_environment_variables
-
-import pyflowgraph
-import changegraph
-import settings
 
 
 class RunModes:
@@ -23,6 +24,7 @@ class RunModes:
     BUILD_CHANGE_GRAPH = 'cg'
     COLLECT_CHANGE_GRAPHS = 'collect-cgs'
     MINE_PATTERNS = 'patterns'
+    PRINT_PATTERNS = 'print-patterns'
     ALL = [BUILD_PY_FLOW_GRAPH, BUILD_CHANGE_GRAPH, COLLECT_CHANGE_GRAPHS, MINE_PATTERNS]
 
 
@@ -112,7 +114,7 @@ def main():
                     miner.add_pattern(pattern)
             else:
                 miner.mine_patterns(change_graphs)
-            miner.print_patterns()
+            miner.dump_patterns()
         else:
             storage_dir = settings.get('change_graphs_storage_dir')
             file_names = os.listdir(storage_dir)
@@ -141,7 +143,9 @@ def main():
             except KeyboardInterrupt:
                 logger.warning('KeyboardInterrupt: mined patterns will be stored before exit')
 
-            miner.print_patterns()
+            miner.dump_patterns()
+    elif current_mode == RunModes.PRINT_PATTERNS:
+        print_patterns_from_dump()
     else:
         raise ValueError
 

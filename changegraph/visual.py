@@ -24,7 +24,7 @@ def _get_label_and_attrs(node):
 
 
 def _get_nodes_digraph(nodes: set, file_name, separate_mapped=True):
-    vg = gv.Digraph(name=file_name, format='pdf')
+    vg = gv.Digraph(name=file_name, format='dot')
 
     used = {}
     for node in nodes:

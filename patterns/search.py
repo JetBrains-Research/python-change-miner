@@ -1,23 +1,25 @@
-import os
-import re
-import shutil
-import hashlib
-import multiprocessing
-import multiprocessing.pool
-import functools
 import copy
+import datetime
+import functools
+import hashlib
 import html
 import json
-import datetime
+import multiprocessing
+import multiprocessing.pool
+import os
+import pickle
+import re
+import shutil
 
-import settings
 import changegraph
-from log import logger
+import settings
 from changegraph.models import ChangeNode
+from log import logger
 from patterns.models import Fragment, Pattern
 
 
 class Miner:
+    DUMP_DIR = settings.get('patterns_dump_dir')
     OUTPUT_DIR = settings.get('patterns_output_dir')
     OUTPUT_DETAILS = settings.get('patterns_output_details')
     FULL_PRINT = settings.get('patterns_full_print', False)
@@ -141,6 +143,8 @@ class Miner:
         if os.path.exists(self.OUTPUT_DIR):
             shutil.rmtree(self.OUTPUT_DIR)
 
+        self.dump_patterns()
+
         with multiprocessing.pool.ThreadPool(processes=multiprocessing.cpu_count()) as thread_pool:
             for size, patterns in self._size_to_patterns.items():
                 if not patterns:
@@ -168,6 +172,28 @@ class Miner:
                  for size in sorted(self._size_to_patterns.keys())])
 
         logger.warning('Done patterns output')
+
+    def dump_patterns(self):
+        if os.path.exists(self.DUMP_DIR):
+            shutil.rmtree(self.DUMP_DIR)
+
+        logger.log(logger.WARNING, 'Start dumping patterns')
+
+        for size, patterns in self._size_to_patterns.items():
+            if not patterns:
+                continue
+
+            logger.log(logger.WARNING, f'Dumping patterns of size {size}', show_pid=True)
+
+            same_size_dir = os.path.join(self.DUMP_DIR, str(size))
+            os.makedirs(same_size_dir, exist_ok=True)
+
+            for pattern in patterns:
+                path_to_pickle = os.path.join(same_size_dir, f'{pattern.id}.pickle')
+                with open(path_to_pickle, 'w+b') as f:
+                    pickle.dump(pattern, f)
+
+        logger.log(logger.WARNING, 'Done patterns dump')
 
     @staticmethod
     def _generate_contents(dir, title, items, styles='../styles.css', has_upper_contents=False):
