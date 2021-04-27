@@ -494,6 +494,10 @@ class ASTVisitor(ast.NodeVisitor):
             arg_fgs = self._visit_fn_def_arguments(node)
         self.fg.parallel_merge_graphs(arg_fgs)
 
+        # Container node: PyStatementList
+        stmt_list_node = StatementNode('PyStatementList', node.body, self.control_branch_stack)
+        self.fg.add_node(stmt_list_node)
+
         for st in node.body:
             try:
                 fg = self.visit(st)
@@ -525,7 +529,13 @@ class ASTVisitor(ast.NodeVisitor):
         return fg
 
     def visit_Expr(self, node):
-        return self.visit(node.value)
+        expr_fg = self.visit(node.value)
+
+        # Container node: PyExpressionStatement
+        container_node = StatementNode('PyExpressionStatement', node, self.control_branch_stack)
+        expr_fg.add_node(container_node, link_type=LinkType.PARAMETER)
+
+        return expr_fg
 
     # Visit literals, variables and collections
     @staticmethod
@@ -750,6 +760,10 @@ class ASTVisitor(ast.NodeVisitor):
 
         fg = self.create_graph()
         fg.parallel_merge_graphs(arg_fgs)
+
+        # Container node: PyArgumentList
+        arg_list_node = StatementNode(f"{name}.PyArgumentList", node.args, self.control_branch_stack)
+        fg.add_node(arg_list_node, link_type=LinkType.PARAMETER, clear_sinks=True)
 
         op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL, key=key)
         op_node.set_property(Node.Property.SYNTAX_TOKEN_INTERVALS, syntax_tokens)
