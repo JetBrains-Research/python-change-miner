@@ -495,7 +495,7 @@ class ASTVisitor(ast.NodeVisitor):
         self.fg.parallel_merge_graphs(arg_fgs)
 
         # Container node: PyStatementList
-        stmt_list_node = StatementNode('PyStatementList', node.body, self.control_branch_stack)
+        stmt_list_node = StatementNode('PyStatementList', node.body[0] if node.body else node, self.control_branch_stack)
         self.fg.add_node(stmt_list_node)
 
         for st in node.body:
@@ -762,7 +762,7 @@ class ASTVisitor(ast.NodeVisitor):
         fg.parallel_merge_graphs(arg_fgs)
 
         # Container node: PyArgumentList
-        arg_list_node = StatementNode(f"{name}.PyArgumentList", node.args, self.control_branch_stack)
+        arg_list_node = StatementNode(f"{name}.PyArgumentList", node.args[0] if node.args else node, self.control_branch_stack)
         fg.add_node(arg_list_node, link_type=LinkType.PARAMETER, clear_sinks=True)
 
         op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL, key=key)
