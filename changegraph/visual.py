@@ -19,6 +19,8 @@ def _get_label_and_attrs(node):
     else:
         attrs['color'] = 'green4'
 
+    attrs['kind'] = node.sub_kind
+
     label = f'{node.label} ({node.original_label}) [{node.id}]'
     return label, attrs
 
