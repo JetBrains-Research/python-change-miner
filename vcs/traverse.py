@@ -8,6 +8,7 @@ import time
 import json
 import subprocess
 import datetime
+from pathlib import Path
 
 from log import logger
 from pydriller import RepositoryMining
@@ -15,6 +16,13 @@ from pydriller.domain.commit import ModificationType
 
 import settings
 import changegraph
+
+relevant_commit_hashes = set()
+path_to_hashes = Path(__file__).parent.parent / 'relevant_commits.txt'
+
+with open(path_to_hashes, 'r') as f:
+    for line in f:
+        relevant_commit_hashes.add(line)
 
 
 class GitAnalyzer:
@@ -167,6 +175,9 @@ class GitAnalyzer:
         change_graphs = []
         commit_msg = commit['msg'].replace('\n', '; ')
         logger.info(f'Looking at commit #{commit["hash"]}, msg: "{commit_msg}"', show_pid=True)
+
+        if commit['hash'] not in relevant_commit_hashes:
+            return
 
         for mod in commit['modifications']:
             if mod['type'] != ModificationType.MODIFY:
