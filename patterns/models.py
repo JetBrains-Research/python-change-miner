@@ -1,3 +1,4 @@
+import ast
 import copy
 import time
 import multiprocessing
@@ -6,7 +7,7 @@ import functools
 from typing import Set, Optional, Dict, FrozenSet, Tuple
 
 from log import logger
-from pyflowgraph.models import LinkType, Node
+from pyflowgraph.models import LinkType, Node, PyArgumentList, PyStatementList
 from changegraph.models import ChangeNode
 from patterns.exas import ExasFeature, normalize
 import settings
@@ -189,6 +190,9 @@ class Fragment:
                     self._add_in_out_node(label_to_extensions, node)
             elif node.kind == ChangeNode.Kind.CONTROL_NODE:
                 self._add_out_node(label_to_extensions, node)
+            elif node.kind == ChangeNode.Kind.UNKNOWN and \
+                (isinstance(node.ast, ast.Expr) or isinstance(node.ast, PyArgumentList) or isinstance(node.ast, PyStatementList)):
+                self._add_extension(label_to_extensions, node)
 
         return label_to_extensions
 

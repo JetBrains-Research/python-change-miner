@@ -1,7 +1,10 @@
-import sys
 import ast
-import asttokens
+import sys
 from xml.sax.saxutils import quoteattr
+
+import asttokens
+
+from pyflowgraph.models import PyArgumentList, PyStatementList
 
 
 def read_file_to_string(filename):
@@ -130,6 +133,9 @@ def parse_file(filename):
             children.append(traverse(node.args))
             children.append(traverse_list(node.body, 'body', node))
             children.append(traverse_list(node.decorator_list, 'decorator_list', node))
+
+            ast_stub = PyStatementList(lineno=node.lineno, col=node.col_offset, end_line_no=node.lineno, end_col=node.col_offset)
+            children.append(traverse(ast_stub))
         else:
             # Default handling: iterate over children.
             for child in ast.iter_child_nodes(node):
@@ -141,6 +147,14 @@ def parse_file(filename):
 
         if isinstance(node, ast.Attribute):
             children.append(gen_identifier(node.attr, 'attr', node))
+
+        if isinstance(node, ast.Call):
+            ast_stub = PyArgumentList(lineno=node.lineno, col=node.col_offset, end_line_no=node.lineno, end_col=node.col_offset)
+            children.append(traverse(ast_stub))
+
+        # if isinstance(node, ast.Module):
+        #     ast_stub = PyStatementList(0, 0, 0, 0)
+        #     children.append(traverse(ast_stub))
 
         if (len(children) != 0):
             json_node['children'] = children
@@ -180,7 +194,7 @@ def parse(filename):
 
 
 if __name__ == "__main__":
-    default_filename = 'src1.py'
+    default_filename = '../tests/1.py'
     filename = sys.argv[1] if len(sys.argv) > 1 else default_filename
 
     json_tree = parse_file(filename)

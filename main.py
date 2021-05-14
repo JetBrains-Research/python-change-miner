@@ -10,6 +10,7 @@ import multiprocessing
 from log import logger
 from patterns import Miner
 from patterns.models import Fragment, Pattern
+from pyflowgraph.models import PyStatementList
 from vcs.traverse import GitAnalyzer, RepoInfo, Method
 
 import pyflowgraph

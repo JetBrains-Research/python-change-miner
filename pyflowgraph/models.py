@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import ast
-from typing import Set
-
-from log import logger
+from _ast import stmt, Expr
+from dataclasses import dataclass
+from typing import Set, Tuple
 
 import vb_utils
+from log import logger
 
 
 class Node:
@@ -151,6 +152,9 @@ class StatementNode(Node):
 
         self.control_branch_stack = []
 
+    def __repr__(self):
+        return f'#{self.statement_num} {self.label}'
+
 
 class EmptyNode(StatementNode):
     def __init__(self, control_branch_stack, /):
@@ -234,7 +238,8 @@ class ControlEdge(Edge):
 
 
 class DataEdge(Edge):
-    def __init__(self, label, node_from, node_to):  # FIXME: DO NO CONSIDER LABEL AS LINK_TYPE, DEFINE A NEW INDICATOR
+    def __init__(self, label, node_from,
+                 node_to):  # FIXME: DO NO CONSIDER LABEL AS LINK_TYPE, DEFINE A NEW INDICATOR
         super().__init__(label, node_from, node_to)
 
 
@@ -514,6 +519,14 @@ class ExtControlFlowGraph:
                 deps = self._get_node_dependencies(node)
                 self.changed_nodes = self.changed_nodes.union(deps)
 
+                # for out_node in node.get_outgoing_nodes():
+                #     if isinstance(out_node.ast, Expr):
+                #         self.changed_nodes.add(out_node)
+
+                for in_node in node.get_incoming_nodes():
+                    if isinstance(in_node.ast, PyArgumentList):
+                        self.changed_nodes.add(in_node)
+
         self.changed_nodes = self.changed_nodes.union(self._get_transitive_change_nodes())
 
     def find_node_by_label(self, label):
@@ -532,3 +545,31 @@ class EntryNodeDuplicated(Exception):  # TODO: move outside of this file
 
 class GumtreeMappingException(Exception):
     pass
+
+
+@dataclass
+class ASTTokenStub:
+    start: Tuple[int, int]
+    end: Tuple[int, int]
+
+    @property
+    def startpos(self):
+        return self.start[0]
+
+    @property
+    def endpos(self):
+        return self.end[0]
+
+
+class PyStatementList(stmt):
+    def __init__(self, lineno=0, col=0, end_line_no=0, end_col=0, *args, **kwargs):
+        super(PyStatementList, self).__init__(*args, **kwargs)
+        self.first_token = ASTTokenStub((lineno, col), (lineno, col))
+        self.last_token = ASTTokenStub((end_line_no, end_col), (end_line_no, end_col))
+
+
+class PyArgumentList(stmt):
+    def __init__(self, lineno=0, col=0, end_line_no=0, end_col=0, *args, **kwargs):
+        super(PyArgumentList, self).__init__(*args, **kwargs)
+        self.first_token = ASTTokenStub((lineno, col), (lineno, col))
+        self.last_token = ASTTokenStub((end_line_no, end_col), (end_line_no, end_col))

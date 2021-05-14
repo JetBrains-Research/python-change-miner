@@ -6,8 +6,9 @@ from asttokens import asttokens
 
 from log import logger
 from pyflowgraph import models, ast_utils
-from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, LinkType, \
-    EntryNode, EmptyNode, ControlEdge, StatementNode
+from pyflowgraph.models import Node, DataNode, OperationNode, ExtControlFlowGraph, ControlNode, DataEdge, \
+    LinkType, \
+    EntryNode, EmptyNode, ControlEdge, StatementNode, PyArgumentList, PyStatementList
 
 
 class BuildingContext:
@@ -495,7 +496,8 @@ class ASTVisitor(ast.NodeVisitor):
         self.fg.parallel_merge_graphs(arg_fgs)
 
         # Container node: PyStatementList
-        stmt_list_node = StatementNode('PyStatementList', node.body[0] if node.body else node, self.control_branch_stack)
+        ast_stub = PyStatementList(lineno=node.lineno, col=node.col_offset, end_line_no=node.lineno, end_col=node.col_offset)
+        stmt_list_node = StatementNode('PyStatementList', ast_stub, self.control_branch_stack)
         self.fg.add_node(stmt_list_node)
 
         for st in node.body:
@@ -762,7 +764,8 @@ class ASTVisitor(ast.NodeVisitor):
         fg.parallel_merge_graphs(arg_fgs)
 
         # Container node: PyArgumentList
-        arg_list_node = StatementNode(f"{name}.PyArgumentList", node.args[0] if node.args else node, self.control_branch_stack)
+        ast_stub = PyArgumentList(lineno=node.lineno, col=node.col_offset, end_line_no=node.lineno, end_col=node.col_offset)
+        arg_list_node = StatementNode(f"{name}.PyArgumentList", ast_stub, self.control_branch_stack)
         fg.add_node(arg_list_node, link_type=LinkType.PARAMETER, clear_sinks=True)
 
         op_node = OperationNode(name, node, self.control_branch_stack, kind=OperationNode.Kind.FUNC_CALL, key=key)
