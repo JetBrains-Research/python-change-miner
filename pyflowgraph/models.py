@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 import ast
-from _ast import stmt, Expr
-from dataclasses import dataclass
-from typing import Set, Tuple
-
 import vb_utils
+from _ast import stmt
+from dataclasses import dataclass
 from log import logger
+from typing import Set, Tuple
 
 
 class Node:
