@@ -1,6 +1,6 @@
 [![JetBrains Research](https://jb.gg/badges/research.svg)](https://confluence.jetbrains.com/display/ALL/JetBrains+on+GitHub)
 
-# Code Change Miner
+# Python Change Miner
 
 A tool for mining graph-based change patterns in Python code.
 
@@ -30,11 +30,9 @@ potential IDE inspections.
     ```
 
 2. Create the settings file _settings.json_ based on
-   [_
-   conf/settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example)
+   [_conf/settings.json.example_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/settings.json.example)
    and save it in the [same directory](https://github.com/JetBrains-Research/code-change-miner/tree/master/conf). You
-   can find the description of individual settings in [_
-   conf/help.md_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/help.md).
+   can find the description of individual settings in [_conf/help.md_](https://github.com/JetBrains-Research/code-change-miner/blob/master/conf/help.md).
 
 
 3. If you want to use the tool for building change graphs or mining change graphs from the local repositories, you need
