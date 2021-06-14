@@ -39,8 +39,16 @@ potential IDE inspections.
    to setup [GumTree](https://github.com/GumTreeDiff/gumtree). But you can use the compiled version of GumTree
    (can be found in the [_external_](https://github.com/JetBrains-Research/code-change-miner/tree/master/external)
    directory), it is slightly modified and uses environment variables `GUMTREE_PYTHON_BIN`
-   (python interpreter path for GumTree pyparser calls) and `GUMTREE_PYPARSER_PATH` (python parser script path). **They
-   are set up automatically.**
+   (python interpreter path for GumTree pyparser calls) and `GUMTREE_PYPARSER_PATH` (python parser script path).
+   For general cases, they are set up automatically. If you want to do it manually, set them, for instance, as follows: 
+
+     ```shell script
+     GUMTREE_PYTHON_BIN=python3
+     ```
+     ```shell script
+     GUMTREE_PYPARSER_PATH={project_dir}/external/pythonparser_3.py
+     ```
+
 
 ## How to use
 
