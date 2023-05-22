@@ -8,5 +8,5 @@ pytest==5.3.5
 stackimpact==1.2.7
 objgraph==3.4.1
 matplotlib==3.2.0
-requests==2.23.0
+requests==2.31.0
 tqdm==4.56.0
